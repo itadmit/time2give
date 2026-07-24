@@ -1,21 +1,37 @@
 import React, { useCallback, useState } from 'react';
-import { View, Pressable, StyleSheet, Modal } from 'react-native';
+import { View, Pressable, StyleSheet, Modal, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Txt } from '../../src/components/ui';
+import { Txt, Button } from '../../src/components/ui';
 import { HelpModal } from '../../src/components/HelpModal';
 import { MapBoundary } from '../../src/components/MapBoundary';
-import { OffersMap, type MapOffer } from '../../src/components/OffersMap';
+import { OffersMap } from '../../src/components/OffersMap';
 import { useAuth } from '../../src/context/AuthContext';
 import { useNotifications } from '../../src/context/NotificationsContext';
-import { ROLE_LABELS, LEVEL_META } from '../../src/lib/domain';
+import { ROLE_LABELS, LEVEL_META, type ReputationLevel } from '../../src/lib/domain';
+import { claimOffer } from '../../src/lib/api';
 import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius, shadow } from '../../src/theme/tokens';
 
 type FeedEvent = { id: number; type: string; payload: any; created_at: string };
 type Intent = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void };
+type OfferRow = {
+  id: string;
+  food_type: string;
+  quantity: number;
+  unit_label: string;
+  kosher: boolean;
+  vegetarian: boolean;
+  notes: string | null;
+  origin_city: string | null;
+  origin_lat: number | null;
+  origin_lng: number | null;
+  donor_name: string;
+  donor_level: ReputationLevel;
+  donor_rating: number;
+};
 
 /**
  * דף בית בסגנון אפליקציית Tesla:
@@ -29,12 +45,14 @@ export default function Feed() {
   const { unread } = useNotifications();
   const router = useRouter();
   const [events, setEvents] = useState<FeedEvent[]>([]);
-  const [offers, setOffers] = useState<MapOffer[]>([]);
+  const [offers, setOffers] = useState<OfferRow[]>([]);
   const [totals, setTotals] = useState({ donations: 0, units: 0 });
   const [helpOpen, setHelpOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const isGuest = !session || !profile;
+  const isRecipient = !!profile?.roles?.includes('recipient');
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('feed_events').select('*').order('created_at', { ascending: false }).limit(20);
@@ -48,8 +66,8 @@ export default function Feed() {
     }
     const { data: off } = await supabase
       .from('open_offers_v')
-      .select('id,food_type,quantity,unit_label,origin_lat,origin_lng');
-    setOffers((off as MapOffer[]) ?? []);
+      .select('id,food_type,quantity,unit_label,kosher,vegetarian,notes,origin_city,origin_lat,origin_lng,donor_name,donor_level,donor_rating');
+    setOffers((off as OfferRow[]) ?? []);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -67,6 +85,34 @@ export default function Feed() {
   ];
 
   const latest = events[0];
+  const selected = offers.find((o) => o.id === selectedId) ?? null;
+  const selectedLevel = selected ? LEVEL_META[selected.donor_level] : null;
+
+  const closeMap = () => {
+    setSelectedId(null);
+    setMapOpen(false);
+  };
+
+  // בחירת תרומה מהמפה (מקבל בלבד) → claim → מסך השיבוץ
+  const claim = (offer: OfferRow) => {
+    if (isGuest) return router.push('/(auth)/phone');
+    Alert.alert(
+      'בחירת תרומה',
+      `${offer.quantity} ${offer.unit_label} · ${offer.food_type}\nמאת ${offer.donor_name}\n\nכיצד תרצה לקבל?`,
+      [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'איסוף עצמאי', onPress: () => doClaim(offer.id, false) },
+        { text: 'בקשת שינוע', onPress: () => doClaim(offer.id, true) },
+      ],
+    );
+  };
+  const doClaim = async (offerId: string, needTransport: boolean) => {
+    const { data, error } = await claimOffer(offerId, needTransport);
+    if (error) return Alert.alert('שגיאה', error.message);
+    closeMap();
+    await load();
+    if (data) router.push(`/assignment/${data}`);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
@@ -175,15 +221,15 @@ export default function Feed() {
       </SafeAreaView>
 
       {/* ── מפה צבעונית אינטראקטיבית בפול-סקרין (נפתחת בלחיצה על מפת הרקע) ── */}
-      <Modal visible={mapOpen} animationType="slide" onRequestClose={() => setMapOpen(false)} presentationStyle="fullScreen">
+      <Modal visible={mapOpen} animationType="slide" onRequestClose={closeMap} presentationStyle="fullScreen">
         <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
           <StatusBar style="dark" />
           <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}><Txt color={colors.white}>מפה זמינה ב-Dev Build</Txt></View>}>
-            <OffersMap offers={offers} variant="fullscreen" mapType="standard" interactive />
+            <OffersMap offers={offers} variant="fullscreen" mapType="standard" interactive onSelect={setSelectedId} />
           </MapBoundary>
           {/* insets מהקומפוננטה (root provider) — אמין בתוך Modal, שלא כמו SafeAreaView שם */}
           <View style={[styles.modalTop, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
-            <Pressable onPress={() => setMapOpen(false)} hitSlop={12} style={styles.closeBtn}>
+            <Pressable onPress={closeMap} hitSlop={12} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
             <View style={styles.modalTitle}>
@@ -191,6 +237,43 @@ export default function Feed() {
               <Txt weight="bold" color={colors.brand700}>תרומות זמינות</Txt>
             </View>
           </View>
+
+          {/* כרטיס פרטים — נפתח בלחיצה על נקודה במפה */}
+          {selected ? (
+            <View style={[styles.detailCard, { paddingBottom: insets.bottom + spacing.lg }]}>
+              <Pressable onPress={() => setSelectedId(null)} hitSlop={10} style={styles.detailClose}>
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <View style={styles.detailIcon}>
+                  <Ionicons name="fast-food" size={24} color={colors.brand700} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Txt weight="bold" variant="h2">{selected.quantity} {selected.unit_label} · {selected.food_type}</Txt>
+                  <Txt variant="caption" color={colors.textMuted}>
+                    {selected.donor_name}
+                    {selectedLevel ? ` · Level ${selectedLevel.n}` : ''}
+                    {selected.donor_rating > 0 ? ` · ⭐ ${selected.donor_rating}` : ''}
+                    {selected.origin_city ? ` · ${selected.origin_city}` : ''}
+                  </Txt>
+                </View>
+              </View>
+
+              {(selected.kosher || selected.vegetarian || selected.notes) ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
+                  {selected.kosher ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>כשר</Txt></View> : null}
+                  {selected.vegetarian ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>צמחוני</Txt></View> : null}
+                  {selected.notes ? <Txt variant="caption" color={colors.textMuted} style={{ flex: 1 }} numberOfLines={2}>{selected.notes}</Txt> : null}
+                </View>
+              ) : null}
+
+              {isRecipient ? (
+                <Button title="בחר תרומה זו" icon="checkmark-circle" onPress={() => claim(selected)} style={{ marginTop: spacing.lg }} />
+              ) : isGuest ? (
+                <Button title="התחבר כדי לבחור תרומה" variant="secondary" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ marginTop: spacing.lg }} />
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </Modal>
     </View>
@@ -297,5 +380,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     ...shadow.card,
+  },
+
+  detailCard: {
+    position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 0,
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: spacing.lg, paddingTop: spacing.xl,
+    ...shadow.card,
+  },
+  detailClose: {
+    position: 'absolute', top: spacing.md, left: spacing.md,
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: colors.surface,
+    alignItems: 'center', justifyContent: 'center', zIndex: 1,
+  },
+  detailIcon: {
+    width: 48, height: 48, borderRadius: 16,
+    backgroundColor: colors.brand50,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  tag: {
+    backgroundColor: colors.brand50,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill,
   },
 });

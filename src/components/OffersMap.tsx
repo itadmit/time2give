@@ -81,6 +81,7 @@ export function OffersMap({ offers, onSelect, variant = 'card', mapType = 'stand
           coordinate={{ latitude: o.origin_lat as number, longitude: o.origin_lng as number }}
           title={`${o.quantity} ${o.unit_label}`}
           description={o.food_type}
+          onPress={() => onSelect?.(o.id)}
           onCalloutPress={() => onSelect?.(o.id)}
         />
       ))}
