@@ -14,7 +14,7 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { NotificationsProvider } from '../src/context/NotificationsContext';
 import { LocationPrompt } from '../src/components/LocationPrompt';
 import { RoleWizard } from '../src/components/RoleWizard';
-import { UpdateGate } from '../src/components/UpdateGate';
+import { useOTAUpdates } from '../src/lib/useOTAUpdates';
 import { colors } from '../src/theme/tokens';
 
 // RTL - קוראים רק אם עוד לא פעיל, כדי לא לייצר "שינוי RTL ממתין" בכל reload (שתוקע את הטעינה)
@@ -85,6 +85,9 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
+  // OTA — תבנית QuickCRM: בודק, מוריד, ומציג Alert; reloadAsync רק בלחיצת משתמש
+  useOTAUpdates();
+
   const [fontsLoaded, fontError] = useFonts({
     Heebo_400Regular,
     Heebo_500Medium,
@@ -113,13 +116,11 @@ export default function RootLayout() {
       <StatusBar style="light" />
       {/* direction:'rtl' מבטיח פריסת ימין-לשמאל מיידית, גם אם forceRTL עוד לא נכנס לתוקף (dev) */}
       <View style={{ flex: 1, direction: 'rtl' }}>
-        <UpdateGate>
-          <AuthProvider>
-            <NotificationsProvider>
-              <AuthGate />
-            </NotificationsProvider>
-          </AuthProvider>
-        </UpdateGate>
+        <AuthProvider>
+          <NotificationsProvider>
+            <AuthGate />
+          </NotificationsProvider>
+        </AuthProvider>
       </View>
     </SafeAreaProvider>
   );
