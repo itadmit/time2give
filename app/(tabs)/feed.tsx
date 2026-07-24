@@ -17,7 +17,6 @@ import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius, shadow } from '../../src/theme/tokens';
 
 type FeedEvent = { id: number; type: string; payload: any; created_at: string };
-type Intent = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void };
 type OfferRow = {
   id: string;
   food_type: string;
@@ -44,7 +43,8 @@ type NeedRow = {
   recipient_type: RecipientType;
   display_name: string | null;
 };
-type MapMode = 'offers' | 'needs';
+// שתי השכבות של האפליקציה: 'donate' = אני תורם (כחול, רואה בקשות) · 'receive' = אני מבקש (ירוק, רואה תרומות)
+type AppMode = 'donate' | 'receive';
 
 /**
  * דף בית בסגנון אפליקציית Tesla:
@@ -63,12 +63,15 @@ export default function Feed() {
   const [totals, setTotals] = useState({ donations: 0, units: 0 });
   const [helpOpen, setHelpOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
-  const [mapMode, setMapMode] = useState<MapMode>('offers');
+  const [appMode, setAppMode] = useState<AppMode>('receive'); // ברירת מחדל: "אני מבקש" (ירוק)
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const isGuest = !session || !profile;
-  const isRecipient = !!profile?.roles?.includes('recipient');
-  const isDonor = !!profile?.roles?.includes('donor');
+
+  // 'donate' = מציג בקשות (needs) · 'receive' = מציג תרומות (offers)
+  const showNeeds = appMode === 'donate';
+  const accent = appMode === 'donate' ? colors.brand700 : colors.secondary;
+  const accentBg = appMode === 'donate' ? colors.brand50 : '#E7F6EE';
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('feed_events').select('*').order('created_at', { ascending: false }).limit(20);
@@ -95,14 +98,14 @@ export default function Feed() {
   const role = profile?.roles?.[0];
   const level = profile ? LEVEL_META[profile.reputation_level] : null;
 
-  // "במה אתה מעוניין?" — בורר כוונה. אורח → הרשמה/התחברות; מחובר → מסך הפעולה המתאים.
+  // פעולה ראשית לפי השכבה. אורח → התחברות.
   const go = (loggedInPath: string) => () => router.push(isGuest ? '/(auth)/phone' : (loggedInPath as any));
-  const intents: Intent[] = [
-    { key: 'seek', label: 'אני מחפש תרומה', icon: 'search', onPress: go('/need/new') },
-    { key: 'donate', label: 'אני רוצה לתרום', icon: 'gift', onPress: go('/offer/new') },
-    { key: 'transport', label: 'אני רוצה לשנע את התרומה', icon: 'car', onPress: go('/(tabs)/activity') },
-    { key: 'coordinator', label: 'רוצה להצטרף כרכז', icon: 'git-network', onPress: go('/(tabs)/activity') },
-  ];
+  const primary =
+    appMode === 'donate'
+      ? { label: 'פרסם תרומה', icon: 'gift' as const, onPress: go('/offer/new') }
+      : { label: 'בקש תרומה', icon: 'megaphone' as const, onPress: go('/need/new') };
+  const mapCount = showNeeds ? needs.length : offers.length;
+  const mapCountLabel = showNeeds ? 'בקשות פתוחות' : 'תרומות זמינות';
 
   const latest = events[0];
 
@@ -121,18 +124,18 @@ export default function Feed() {
     };
   });
   const offerMarkers: MapOffer[] = offers;
-  const markers = mapMode === 'offers' ? offerMarkers : needMarkers;
+  const markers = showNeeds ? needMarkers : offerMarkers;
 
-  const selectedOffer = mapMode === 'offers' ? offers.find((o) => o.id === selectedId) ?? null : null;
-  const selectedNeed = mapMode === 'needs' ? needs.find((n) => n.id === selectedId) ?? null : null;
+  const selectedOffer = !showNeeds ? offers.find((o) => o.id === selectedId) ?? null : null;
+  const selectedNeed = showNeeds ? needs.find((n) => n.id === selectedId) ?? null : null;
   const selectedLevel = selectedOffer ? LEVEL_META[selectedOffer.donor_level] : null;
 
   const closeMap = () => {
     setSelectedId(null);
     setMapOpen(false);
   };
-  const switchMode = (m: MapMode) => {
-    setMapMode(m);
+  const switchMode = (m: AppMode) => {
+    setAppMode(m);
     setSelectedId(null);
   };
 
@@ -234,6 +237,24 @@ export default function Feed() {
             ) : null}
           </Pressable>
         </View>
+
+        {/* ── סוויצ'ר שכבות: אני תורם (כחול) / אני מבקש (ירוק) ── */}
+        <View style={styles.modeSwitch}>
+          <Pressable
+            onPress={() => switchMode('donate')}
+            style={[styles.modeBtn, appMode === 'donate' && { backgroundColor: colors.brand700 }]}
+          >
+            <Ionicons name="gift" size={16} color={appMode === 'donate' ? colors.white : colors.brand700} />
+            <Txt weight="bold" variant="small" color={appMode === 'donate' ? colors.white : colors.textMuted}>אני תורם</Txt>
+          </Pressable>
+          <Pressable
+            onPress={() => switchMode('receive')}
+            style={[styles.modeBtn, appMode === 'receive' && { backgroundColor: colors.secondary }]}
+          >
+            <Ionicons name="megaphone" size={16} color={appMode === 'receive' ? colors.white : colors.secondary} />
+            <Txt weight="bold" variant="small" color={appMode === 'receive' ? colors.white : colors.textMuted}>אני מבקש</Txt>
+          </Pressable>
+        </View>
       </SafeAreaView>
 
       <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} role={role} />
@@ -264,22 +285,18 @@ export default function Feed() {
             </View>
           </View>
 
-          {/* "במה אתה מעוניין?" — בורר כוונה */}
-          <Txt weight="bold" style={styles.intentTitle}>במה אתה מעוניין?</Txt>
-          <View style={styles.intentList}>
-            {intents.map((it) => (
-              <Pressable
-                key={it.key}
-                onPress={it.onPress}
-                style={({ pressed }) => [styles.intentRow, pressed && { backgroundColor: colors.brand50 }]}
-              >
-                <View style={styles.intentIcon}>
-                  <Ionicons name={it.icon} size={20} color={colors.brand700} />
-                </View>
-                <Txt weight="medium" style={{ flex: 1 }}>{it.label}</Txt>
-                <Ionicons name="chevron-back" size={18} color={colors.textMuted} />
-              </Pressable>
-            ))}
+          {/* פעולות לפי השכבה */}
+          <View style={styles.dockActions}>
+            <Pressable onPress={primary.onPress} style={[styles.primaryCta, { backgroundColor: accent }]}>
+              <Ionicons name={primary.icon} size={20} color={colors.white} />
+              <Txt weight="bold" color={colors.white}>{primary.label}</Txt>
+            </Pressable>
+            <Pressable onPress={() => setMapOpen(true)} style={[styles.mapCta, { borderColor: accent }]}>
+              <Ionicons name="map" size={18} color={accent} />
+              <Txt weight="bold" variant="small" color={accent}>
+                {mapCount} {mapCountLabel} על המפה
+              </Txt>
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>
@@ -289,22 +306,22 @@ export default function Feed() {
         <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
           <StatusBar style="dark" />
           <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}><Txt color={colors.white}>מפה זמינה ב-Dev Build</Txt></View>}>
-            <OffersMap key={mapMode} offers={markers} variant="fullscreen" mapType="standard" interactive onSelect={setSelectedId} />
+            <OffersMap key={appMode} offers={markers} variant="fullscreen" mapType="standard" interactive pinColor={accent} onSelect={setSelectedId} />
           </MapBoundary>
           {/* insets מהקומפוננטה (root provider) — אמין בתוך Modal, שלא כמו SafeAreaView שם */}
           <View style={[styles.modalTop, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
             <Pressable onPress={closeMap} hitSlop={12} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
-            {/* טוגלים: תרומות זמינות / בקשות לתרומה */}
+            {/* סוויצ'ר השכבות (זהה לדף הבית) */}
             <View style={styles.toggleWrap}>
-              <Pressable onPress={() => switchMode('offers')} style={[styles.toggle, mapMode === 'offers' && styles.toggleOn]}>
-                <Ionicons name="gift" size={15} color={mapMode === 'offers' ? colors.white : colors.brand700} />
-                <Txt variant="caption" weight="bold" color={mapMode === 'offers' ? colors.white : colors.brand700}>תרומות זמינות</Txt>
+              <Pressable onPress={() => switchMode('donate')} style={[styles.toggle, appMode === 'donate' && { backgroundColor: colors.brand700 }]}>
+                <Ionicons name="gift" size={15} color={appMode === 'donate' ? colors.white : colors.brand700} />
+                <Txt variant="caption" weight="bold" color={appMode === 'donate' ? colors.white : colors.brand700}>אני תורם</Txt>
               </Pressable>
-              <Pressable onPress={() => switchMode('needs')} style={[styles.toggle, mapMode === 'needs' && styles.toggleOn]}>
-                <Ionicons name="megaphone" size={15} color={mapMode === 'needs' ? colors.white : colors.brand700} />
-                <Txt variant="caption" weight="bold" color={mapMode === 'needs' ? colors.white : colors.brand700}>בקשות לתרומה</Txt>
+              <Pressable onPress={() => switchMode('receive')} style={[styles.toggle, appMode === 'receive' && { backgroundColor: colors.secondary }]}>
+                <Ionicons name="megaphone" size={15} color={appMode === 'receive' ? colors.white : colors.secondary} />
+                <Txt variant="caption" weight="bold" color={appMode === 'receive' ? colors.white : colors.secondary}>אני מבקש</Txt>
               </Pressable>
             </View>
           </View>
@@ -316,8 +333,8 @@ export default function Feed() {
                 <Ionicons name="close" size={18} color={colors.textMuted} />
               </Pressable>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                <View style={styles.detailIcon}>
-                  <Ionicons name="fast-food" size={24} color={colors.brand700} />
+                <View style={[styles.detailIcon, { backgroundColor: accentBg }]}>
+                  <Ionicons name="fast-food" size={24} color={accent} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Txt weight="bold" variant="h2">{selectedOffer.quantity} {selectedOffer.unit_label} · {selectedOffer.food_type}</Txt>
@@ -338,11 +355,11 @@ export default function Feed() {
                 </View>
               ) : null}
 
-              {isRecipient ? (
-                <Button title="בחר תרומה זו" icon="checkmark-circle" onPress={() => claim(selectedOffer)} style={{ marginTop: spacing.lg }} />
-              ) : isGuest ? (
-                <Button title="התחבר כדי לבחור תרומה" variant="secondary" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ marginTop: spacing.lg }} />
-              ) : null}
+              {isGuest ? (
+                <Button title="התחבר" variant="secondary" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ marginTop: spacing.lg }} />
+              ) : (
+                <Button title="קבל תרומה זו" icon="checkmark-circle" onPress={() => claim(selectedOffer)} color={accent} style={{ marginTop: spacing.lg }} />
+              )}
             </View>
           ) : null}
 
@@ -368,11 +385,11 @@ export default function Feed() {
                 <Txt variant="caption" color={colors.textMuted} style={{ marginTop: spacing.md }} numberOfLines={2}>{selectedNeed.notes}</Txt>
               ) : null}
 
-              {isDonor ? (
-                <Button title="אני מתחייב לבקשה" icon="hand-left" onPress={() => commit(selectedNeed)} style={{ marginTop: spacing.lg }} />
-              ) : isGuest ? (
-                <Button title="התחבר כדי להתחייב" variant="secondary" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ marginTop: spacing.lg }} />
-              ) : null}
+              {isGuest ? (
+                <Button title="התחבר" variant="secondary" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ marginTop: spacing.lg }} />
+              ) : (
+                <Button title="אני אתרום" icon="hand-left" onPress={() => commit(selectedNeed)} color={accent} style={{ marginTop: spacing.lg }} />
+              )}
             </View>
           ) : null}
         </View>
@@ -442,18 +459,29 @@ const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: 'center', gap: 2 },
   statDivider: { width: 1, height: 32, backgroundColor: colors.border },
 
-  intentTitle: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  intentList: { paddingHorizontal: spacing.lg, gap: spacing.sm },
-  intentRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    paddingVertical: spacing.md, paddingHorizontal: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+  modeSwitch: {
+    flexDirection: 'row',
+    backgroundColor: CARD_BG,
+    borderRadius: radius.pill,
+    padding: 4, gap: 4,
+    marginTop: spacing.sm,
+    ...shadow.card,
   },
-  intentIcon: {
-    width: 40, height: 40, borderRadius: 14,
-    backgroundColor: colors.brand50,
-    alignItems: 'center', justifyContent: 'center',
+  modeBtn: {
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+  },
+  dockActions: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  primaryCta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 14, borderRadius: radius.md,
+  },
+  mapCta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: spacing.md, borderRadius: radius.md,
+    borderWidth: 1.5,
   },
 
   tapHint: {
@@ -496,7 +524,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
     borderRadius: radius.pill,
   },
-  toggleOn: { backgroundColor: colors.brand700 },
 
   detailCard: {
     position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: 0,

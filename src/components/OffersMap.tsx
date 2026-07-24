@@ -28,10 +28,12 @@ type Props = {
   mapType?: 'standard' | 'mutedStandard';
   /** false = מפת רקע לא-אינטראקטיבית (ללא גלילה/זום, מעבירה מגע להורה) */
   interactive?: boolean;
+  /** צבע הסמנים (למשל צבע השכבה) */
+  pinColor?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-export function OffersMap({ offers, onSelect, variant = 'card', mapType = 'standard', interactive = true, style }: Props) {
+export function OffersMap({ offers, onSelect, variant = 'card', mapType = 'standard', interactive = true, pinColor, style }: Props) {
   const mapRef = useRef<MapView>(null);
   const withCoords = offers.filter((o) => o.origin_lat != null && o.origin_lng != null);
   const isFull = variant === 'fullscreen';
@@ -81,6 +83,7 @@ export function OffersMap({ offers, onSelect, variant = 'card', mapType = 'stand
           coordinate={{ latitude: o.origin_lat as number, longitude: o.origin_lng as number }}
           title={`${o.quantity} ${o.unit_label}`}
           description={o.food_type}
+          pinColor={pinColor}
           onPress={() => onSelect?.(o.id)}
           onCalloutPress={() => onSelect?.(o.id)}
         />

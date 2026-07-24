@@ -95,6 +95,7 @@ export function Button({
   disabled,
   icon,
   style,
+  color,
 }: {
   title: string;
   onPress?: () => void;
@@ -103,9 +104,13 @@ export function Button({
   disabled?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   style?: ViewStyle;
+  /** דריסת צבע הרקע לכפתור primary (למשל צבע השכבה) */
+  color?: string;
 }) {
   const bg =
-    variant === 'primary' ? colors.brand700 : variant === 'danger' ? colors.danger : variant === 'secondary' ? colors.brand50 : 'transparent';
+    color && variant === 'primary'
+      ? color
+      : variant === 'primary' ? colors.brand700 : variant === 'danger' ? colors.danger : variant === 'secondary' ? colors.brand50 : 'transparent';
   const fg = variant === 'secondary' ? colors.brand700 : variant === 'ghost' ? colors.brand700 : colors.white;
   return (
     <Pressable
