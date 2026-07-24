@@ -14,7 +14,7 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { NotificationsProvider } from '../src/context/NotificationsContext';
 import { LocationPrompt } from '../src/components/LocationPrompt';
 import { RoleWizard } from '../src/components/RoleWizard';
-import { checkForOtaUpdate } from '../src/lib/ota';
+import { UpdateGate } from '../src/components/UpdateGate';
 import { colors } from '../src/theme/tokens';
 
 // RTL - קוראים רק אם עוד לא פעיל, כדי לא לייצר "שינוי RTL ממתין" בכל reload (שתוקע את הטעינה)
@@ -100,11 +100,6 @@ export default function RootLayout() {
   }, []);
   const ready = fontsLoaded || !!fontError || fontsTimedOut;
 
-  // בדיקת עדכון OTA בעלייה (רק ב-build אמיתי, לא dev/Expo Go)
-  useEffect(() => {
-    checkForOtaUpdate();
-  }, []);
-
   if (!ready) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand700 }}>
@@ -118,11 +113,13 @@ export default function RootLayout() {
       <StatusBar style="light" />
       {/* direction:'rtl' מבטיח פריסת ימין-לשמאל מיידית, גם אם forceRTL עוד לא נכנס לתוקף (dev) */}
       <View style={{ flex: 1, direction: 'rtl' }}>
-        <AuthProvider>
-          <NotificationsProvider>
-            <AuthGate />
-          </NotificationsProvider>
-        </AuthProvider>
+        <UpdateGate>
+          <AuthProvider>
+            <NotificationsProvider>
+              <AuthGate />
+            </NotificationsProvider>
+          </AuthProvider>
+        </UpdateGate>
       </View>
     </SafeAreaProvider>
   );

@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Pressable, StyleSheet, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Txt } from '../../src/components/ui';
 import { HelpModal } from '../../src/components/HelpModal';
@@ -33,6 +33,7 @@ export default function Feed() {
   const [totals, setTotals] = useState({ donations: 0, units: 0 });
   const [helpOpen, setHelpOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const isGuest = !session || !profile;
 
   const load = useCallback(async () => {
@@ -175,24 +176,22 @@ export default function Feed() {
 
       {/* ── מפה צבעונית אינטראקטיבית בפול-סקרין (נפתחת בלחיצה על מפת הרקע) ── */}
       <Modal visible={mapOpen} animationType="slide" onRequestClose={() => setMapOpen(false)} presentationStyle="fullScreen">
-        {/* SafeAreaProvider נדרש בתוך Modal כדי ש-SafeAreaView יקבל insets (אחרת השעון של iOS מתנגש) */}
-        <SafeAreaProvider>
-          <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
-            <StatusBar style="dark" />
-            <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}><Txt color={colors.white}>מפה זמינה ב-Dev Build</Txt></View>}>
-              <OffersMap offers={offers} variant="fullscreen" mapType="standard" interactive />
-            </MapBoundary>
-            <SafeAreaView edges={['top']} style={styles.modalTop} pointerEvents="box-none">
-              <Pressable onPress={() => setMapOpen(false)} hitSlop={12} style={styles.closeBtn}>
-                <Ionicons name="close" size={24} color={colors.text} />
-              </Pressable>
-              <View style={styles.modalTitle}>
-                <Ionicons name="gift" size={16} color={colors.brand700} />
-                <Txt weight="bold" color={colors.brand700}>תרומות זמינות</Txt>
-              </View>
-            </SafeAreaView>
+        <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
+          <StatusBar style="dark" />
+          <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}><Txt color={colors.white}>מפה זמינה ב-Dev Build</Txt></View>}>
+            <OffersMap offers={offers} variant="fullscreen" mapType="standard" interactive />
+          </MapBoundary>
+          {/* insets מהקומפוננטה (root provider) — אמין בתוך Modal, שלא כמו SafeAreaView שם */}
+          <View style={[styles.modalTop, { paddingTop: insets.top + spacing.sm }]} pointerEvents="box-none">
+            <Pressable onPress={() => setMapOpen(false)} hitSlop={12} style={styles.closeBtn}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </Pressable>
+            <View style={styles.modalTitle}>
+              <Ionicons name="gift" size={16} color={colors.brand700} />
+              <Txt weight="bold" color={colors.brand700}>תרומות זמינות</Txt>
+            </View>
           </View>
-        </SafeAreaProvider>
+        </View>
       </Modal>
     </View>
   );
