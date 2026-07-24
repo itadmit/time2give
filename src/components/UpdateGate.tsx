@@ -4,66 +4,48 @@ import * as Updates from 'expo-updates';
 import { colors, font } from '../theme/tokens';
 
 /**
- * שער עדכון OTA בכניסה לאפליקציה.
- * מציג "בודק עדכונים" → "מוריד עדכון" עם progress bar, מוריד ומחיל את העדכון
- * **לפני** שהאפליקציה נטענת (reloadAsync). כך העדכון מגיע מיד, בלי תלות ב-cold-start.
- * ב-dev / Expo Go / ללא עדכון — עובר מיד לילדים.
+ * שער עדכון OTA בכניסה — מבוסס על ה-hook הרשמי `Updates.useUpdates()`.
+ * השכבה הנייטיבית (checkAutomatically=ON_LOAD) בודקת ומורידה עדכון ברקע;
+ * כאן רק מציגים חיווי ("בודק עדכונים…"/"מוריד עדכון…") עם progress bar,
+ * ומפעילים reloadAsync **רק** כשעדכון כבר הורד ומוכן (isUpdatePending) — אחרי טעינה מלאה,
+ * מה שנמנע מהקריסה של reloadAsync שנקרא ידנית בתחילת ה-boot.
  */
-type Phase = 'checking' | 'downloading' | 'done';
-
-// אם הבדיקה נתקעת (רשת איטית) — לא חוסמים את האפליקציה מעבר לזמן הזה
-const CHECK_TIMEOUT_MS = 8000;
+// לא חוסמים את האפליקציה יותר מזה גם אם הבדיקה/הורדה נתקעת
+const MAX_BLOCK_MS = 9000;
 
 export function UpdateGate({ children }: { children: React.ReactNode }) {
-  const [phase, setPhase] = useState<Phase>(__DEV__ || !Updates.isEnabled ? 'done' : 'checking');
-  const [statusText, setStatusText] = useState('בודק עדכונים…');
+  const enabled = !__DEV__ && Updates.isEnabled;
+  const { isChecking, isDownloading, isUpdatePending } = Updates.useUpdates();
+  const [timedOut, setTimedOut] = useState(false);
+  const reloadedRef = useRef(false);
   const progress = useRef(new Animated.Value(0)).current;
 
+  // כשעדכון הורד ומוכן — טוענים מחדש כדי להחיל אותו (פעם אחת, עם הגנה מקריסה)
   useEffect(() => {
-    if (phase === 'done') return;
-    let cancelled = false;
+    if (enabled && isUpdatePending && !reloadedRef.current) {
+      reloadedRef.current = true;
+      Updates.reloadAsync().catch(() => setTimedOut(true));
+    }
+  }, [enabled, isUpdatePending]);
 
-    const animateTo = (to: number, duration: number) =>
-      Animated.timing(progress, { toValue: to, duration, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+  // הגנת זמן: לא נחסום את האפליקציה לנצח אם משהו נתקע
+  useEffect(() => {
+    const t = setTimeout(() => setTimedOut(true), MAX_BLOCK_MS);
+    return () => clearTimeout(t);
+  }, []);
 
-    (async () => {
-      try {
-        animateTo(0.35, 900); // "בודק" — התקדמות ראשונית
-        const check = Updates.checkForUpdateAsync();
-        const timeout = new Promise<{ isAvailable: false }>((res) =>
-          setTimeout(() => res({ isAvailable: false }), CHECK_TIMEOUT_MS),
-        );
-        const result: any = await Promise.race([check, timeout]);
-        if (cancelled) return;
+  const busy = enabled && !timedOut && (isChecking || isDownloading || isUpdatePending);
 
-        if (!result?.isAvailable) {
-          animateTo(1, 250);
-          setTimeout(() => !cancelled && setPhase('done'), 250);
-          return;
-        }
+  // התקדמות הפס לפי השלב
+  useEffect(() => {
+    const to = isUpdatePending ? 1 : isDownloading ? 0.85 : 0.35;
+    Animated.timing(progress, { toValue: to, duration: 700, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+  }, [isChecking, isDownloading, isUpdatePending, progress]);
 
-        // יש עדכון — מורידים עם חיווי
-        setPhase('downloading');
-        setStatusText('מוריד עדכון…');
-        animateTo(0.9, 1400);
-        await Updates.fetchUpdateAsync();
-        if (cancelled) return;
-        setStatusText('מחיל עדכון…');
-        animateTo(1, 300);
-        setTimeout(() => Updates.reloadAsync(), 350); // טעינה מחדש עם הגרסה החדשה
-      } catch {
-        if (!cancelled) setPhase('done'); // כשל בעדכון לא חוסם את האפליקציה
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, progress]);
-
-  if (phase === 'done') return <>{children}</>;
+  if (!busy) return <>{children}</>;
 
   const width = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  const status = isUpdatePending ? 'מחיל עדכון…' : isDownloading ? 'מוריד עדכון…' : 'בודק עדכונים…';
 
   return (
     <View style={styles.wrap}>
@@ -74,7 +56,7 @@ export function UpdateGate({ children }: { children: React.ReactNode }) {
       </View>
       <View style={styles.statusRow}>
         <ActivityIndicator color={colors.brand100} size="small" />
-        <Text style={styles.status}>{statusText}</Text>
+        <Text style={styles.status}>{status}</Text>
       </View>
     </View>
   );
