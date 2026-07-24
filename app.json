@@ -3,6 +3,7 @@
     "name": "Time2Give",
     "slug": "time4giving",
     "version": "0.1.0",
+    "platforms": ["ios", "android"],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "time4giving",
