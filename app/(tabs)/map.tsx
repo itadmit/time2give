@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, EmptyState } from '../../src/components/ui';
 import { MapBoundary } from '../../src/components/MapBoundary';
 import { OffersMap } from '../../src/components/OffersMap';
+import { FloatingCTA } from '../../src/components/FloatingCTA';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
 import { claimOffer } from '../../src/lib/api';
@@ -131,6 +132,7 @@ export default function OffersScreen() {
           })
         )}
       </ScrollView>
+      <FloatingCTA />
     </View>
   );
 }

@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Screen, Txt, Field, Button, Header, Card, Divider } from '../../src/components/ui';
 import { RegionPicker } from '../../src/components/RegionPicker';
+import { PENDING_ROLE_KEY } from '../../src/components/RoleWizard';
 import { useAuth } from '../../src/context/AuthContext';
 import { setMyProfile, upsertRecipientProfile } from '../../src/lib/api';
 import { ROLE_LABELS, RECIPIENT_TYPE_LABELS, type UserRole, type RecipientType } from '../../src/lib/domain';
 import type { Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
 
-const ROLE_OPTIONS: { role: UserRole; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
-  { role: 'donor', icon: 'gift', desc: 'מכין/מספק מזון' },
-  { role: 'recipient', icon: 'shield-checkmark', desc: 'נציג יחידה / רס"פ' },
-  { role: 'coordinator', icon: 'git-network', desc: 'מנהל שינוע' },
-  { role: 'courier', icon: 'car', desc: 'מוביל תרומות' },
+// נהג מושבת — מוזמן ע"י רכזים בלבד (ביטחון). מוצג כקובייה נעולה ולא נבחר בהרשמה.
+const ROLE_OPTIONS: { role: UserRole; icon: keyof typeof Ionicons.glyphMap; desc: string; disabled?: boolean }[] = [
+  { role: 'donor', icon: 'gift', desc: 'מכין ומספק מזון לחיילים' },
+  { role: 'recipient', icon: 'shield-checkmark', desc: 'חייל · מבקש/מאשר תרומות' },
+  { role: 'coordinator', icon: 'git-network', desc: 'מחבר תורמים לחיילים · טעון אישור' },
+  { role: 'courier', icon: 'car', desc: 'מוזמן ע"י רכזים בלבד · לביטחון חיילינו', disabled: true },
 ];
 
 const RECIPIENT_TYPES: RecipientType[] = ['military_unit', 'hospital', 'elderly', 'family', 'ngo', 'rescue', 'evacuee', 'emergency'];
@@ -26,8 +29,16 @@ export default function Onboarding() {
   const [recipientType, setRecipientType] = useState<RecipientType>('military_unit');
   const [loading, setLoading] = useState(false);
 
+  // תפקיד שנבחר בויזארד הפתיחה — נטען מראש
+  useEffect(() => {
+    AsyncStorage.getItem(PENDING_ROLE_KEY).then((r) => {
+      if (r === 'donor' || r === 'recipient' || r === 'coordinator') setRole(r as UserRole);
+      AsyncStorage.removeItem(PENDING_ROLE_KEY);
+    });
+  }, []);
+
   const isRecipient = role === 'recipient';
-  const needsCoverage = role === 'donor' || role === 'courier' || role === 'coordinator';
+  const needsCoverage = role === 'donor' || role === 'coordinator';
 
   const save = async () => {
     if (!name.trim()) return Alert.alert('חסר שם', 'הזן שם מלא');
@@ -69,13 +80,13 @@ export default function Onboarding() {
           {ROLE_OPTIONS.map((opt) => {
             const active = role === opt.role;
             return (
-              <Pressable key={opt.role} onPress={() => setRole(opt.role)}>
-                <Card style={{ borderWidth: 2, borderColor: active ? colors.brand700 : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: active ? colors.brand700 : colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name={opt.icon} size={22} color={active ? colors.white : colors.brand700} />
+              <Pressable key={opt.role} onPress={() => !opt.disabled && setRole(opt.role)} disabled={opt.disabled}>
+                <Card style={{ borderWidth: 2, borderColor: active ? colors.brand700 : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 12, opacity: opt.disabled ? 0.6 : 1 }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: opt.disabled ? colors.border : active ? colors.brand700 : colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name={opt.disabled ? 'lock-closed' : opt.icon} size={22} color={opt.disabled ? colors.textMuted : active ? colors.white : colors.brand700} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Txt weight="bold">{ROLE_LABELS[opt.role]}</Txt>
+                    <Txt weight="bold" color={opt.disabled ? colors.textMuted : colors.text}>{ROLE_LABELS[opt.role]}</Txt>
                     <Txt variant="caption" color={colors.textMuted}>
                       {opt.desc}
                     </Txt>

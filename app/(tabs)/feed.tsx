@@ -8,6 +8,7 @@ import { Txt, Card, Button, StatBlock, EmptyState } from '../../src/components/u
 import { HelpModal } from '../../src/components/HelpModal';
 import { useAuth } from '../../src/context/AuthContext';
 import { useNotifications } from '../../src/context/NotificationsContext';
+import { FloatingCTA } from '../../src/components/FloatingCTA';
 import { supabase } from '../../src/lib/supabase';
 import { ROLE_LABELS } from '../../src/lib/domain';
 import { colors, spacing } from '../../src/theme/tokens';
@@ -125,6 +126,7 @@ export default function Feed() {
           ))
         )}
       </ScrollView>
+      <FloatingCTA />
     </View>
   );
 }

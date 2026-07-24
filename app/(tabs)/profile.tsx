@@ -14,7 +14,7 @@ import { colors, spacing, radius } from '../../src/theme/tokens';
 type Badge = { id: string; badge_type: string };
 
 export default function Profile() {
-  const { profile, signOut, refreshProfile } = useAuth();
+  const { profile, session, signOut, refreshProfile } = useAuth();
   const router = useRouter();
   const [badges, setBadges] = useState<Badge[]>([]);
   const [editing, setEditing] = useState(false);
@@ -30,7 +30,26 @@ export default function Profile() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  if (!profile) return null;
+  // אורח (בלי התחברות) — מסך הנעה להרשמה/התחברות
+  if (!session || !profile) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.surface }}>
+        <Header title="פרופיל" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md }}>
+          <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="person-circle-outline" size={56} color={colors.brand700} />
+          </View>
+          <Txt variant="h2" weight="extrabold" center>
+            אתה גולש כאורח
+          </Txt>
+          <Txt color={colors.textMuted} center style={{ marginBottom: spacing.md }}>
+            אפשר לצפות בתרומות בחופשיות. כדי לבקש תרומה, לאשר, או לפרסם — יש להתחבר.
+          </Txt>
+          <Button title="הרשמה / התחברות" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ alignSelf: 'stretch' }} />
+        </View>
+      </View>
+    );
+  }
   const lvl = LEVEL_META[profile.reputation_level];
   const verified = profile.verification_status === 'approved';
   const isRecipient = profile.roles.includes('recipient');

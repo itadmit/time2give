@@ -13,6 +13,7 @@ import {
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { NotificationsProvider } from '../src/context/NotificationsContext';
 import { LocationPrompt } from '../src/components/LocationPrompt';
+import { RoleWizard } from '../src/components/RoleWizard';
 import { checkForOtaUpdate } from '../src/lib/ota';
 import { colors } from '../src/theme/tokens';
 
@@ -56,7 +57,9 @@ function AuthGate() {
     const onboarded = !!profile?.onboarded;
 
     if (!session) {
-      if (!inAuth) router.replace('/(auth)/phone');
+      // אורח: פתיחה ישירות לגלישה חופשית, בלי לכפות התחברות.
+      // התחברות נדרשת רק בעת פעולה (בקשה/אישור/פרסום) — המסכים מפנים ל-phone לפי הצורך.
+      if (atRoot) router.replace('/(tabs)/feed');
     } else if (!onboarded) {
       if (seg[1] !== 'onboarding') router.replace('/(auth)/onboarding');
     } else if (inAuth || atRoot) {
@@ -76,6 +79,7 @@ function AuthGate() {
         <Stack.Screen name="admin" />
       </Stack>
       <LocationPrompt enabled={!loading && !!session && !!profile?.onboarded} />
+      <RoleWizard enabled={!loading && !session} />
     </>
   );
 }
