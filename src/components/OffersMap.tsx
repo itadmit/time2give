@@ -24,10 +24,14 @@ type Props = {
   onSelect?: (id: string) => void;
   /** 'card' = מפה קטנה בכרטיס (ברירת מחדל). 'fullscreen' = ממלאת את ההורה, זום קצת רחוק, ללא כפתורים */
   variant?: 'card' | 'fullscreen';
+  /** 'standard' = צבעוני (ברירת מחדל). 'mutedStandard' = מעומעם/שחור-לבן (Apple Maps) */
+  mapType?: 'standard' | 'mutedStandard';
+  /** false = מפת רקע לא-אינטראקטיבית (ללא גלילה/זום, מעבירה מגע להורה) */
+  interactive?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-export function OffersMap({ offers, onSelect, variant = 'card', style }: Props) {
+export function OffersMap({ offers, onSelect, variant = 'card', mapType = 'standard', interactive = true, style }: Props) {
   const mapRef = useRef<MapView>(null);
   const withCoords = offers.filter((o) => o.origin_lat != null && o.origin_lng != null);
   const isFull = variant === 'fullscreen';
@@ -61,10 +65,15 @@ export function OffersMap({ offers, onSelect, variant = 'card', style }: Props) 
       ref={mapRef}
       style={[isFull ? StyleSheet.absoluteFill : styles.card, style]}
       initialRegion={INITIAL}
+      mapType={mapType}
       showsUserLocation
-      showsMyLocationButton={!isFull}
-      toolbarEnabled={!isFull}
-      pointerEvents={isFull ? 'none' : 'auto'}
+      showsMyLocationButton={interactive}
+      toolbarEnabled={interactive}
+      scrollEnabled={interactive}
+      zoomEnabled={interactive}
+      rotateEnabled={interactive}
+      pitchEnabled={interactive}
+      pointerEvents={interactive ? 'auto' : 'none'}
     >
       {withCoords.map((o) => (
         <Marker

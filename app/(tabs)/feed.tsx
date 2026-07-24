@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, Pressable, StyleSheet, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,13 +24,15 @@ type Cmd = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; o
  * אין גלילת-עמוד: המפה שולטת, הכל צף מעליה.
  */
 export default function Feed() {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { unread } = useNotifications();
   const router = useRouter();
   const [events, setEvents] = useState<FeedEvent[]>([]);
   const [offers, setOffers] = useState<MapOffer[]>([]);
   const [totals, setTotals] = useState({ donations: 0, units: 0 });
   const [helpOpen, setHelpOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const isGuest = !session || !profile;
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('feed_events').select('*').order('created_at', { ascending: false }).limit(20);
@@ -55,8 +57,14 @@ export default function Feed() {
 
   // שורת הפקודות תלוית-תפקיד (סגנון "כפתורי שליטה" של טסלה)
   const commands: Cmd[] = (() => {
-    const map: Cmd = { key: 'map', label: 'מפת תרומות', icon: 'map', onPress: () => router.push('/(tabs)/map') };
+    const map: Cmd = { key: 'map', label: 'פתח מפה', icon: 'map', onPress: () => setMapOpen(true) };
     const activity: Cmd = { key: 'activity', label: 'הפעילות שלי', icon: 'time', onPress: () => router.push('/(tabs)/activity') };
+    if (isGuest) {
+      return [
+        { key: 'login', label: 'הרשמה / התחברות', icon: 'log-in', primary: true, onPress: () => router.push('/(auth)/phone') },
+        map,
+      ];
+    }
     switch (role) {
       case 'donor':
         return [
@@ -85,23 +93,38 @@ export default function Feed() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
-      {/* מפת רקע פול-סקרין (ממורכזת על המשתמש). נופלת חיננית לרקע מותג ב-Expo Go */}
+      {/* מפת רקע פול-סקרין בשחור-לבן (mutedStandard), לא-אינטראקטיבית. נופלת חיננית לרקע מותג ב-Expo Go */}
       <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, { backgroundColor: colors.brand700 }]} />}>
-        <OffersMap offers={offers} variant="fullscreen" />
+        <OffersMap offers={offers} variant="fullscreen" mapType="mutedStandard" interactive={false} />
       </MapBoundary>
+      {/* לחיצה על המפה → פותחת מפה צבעונית אינטראקטיבית בפול-סקרין */}
+      <Pressable style={StyleSheet.absoluteFill} onPress={() => setMapOpen(true)}>
+        <View style={styles.tapHint} pointerEvents="none">
+          <Ionicons name="expand" size={14} color={colors.white} />
+          <Txt variant="caption" weight="medium" color={colors.white}>הקש למפה מלאה</Txt>
+        </View>
+      </Pressable>
 
       {/* ── כרטיס סטטוס צף עליון ── */}
       <SafeAreaView edges={['top']} style={styles.topWrap} pointerEvents="box-none">
         <View style={styles.statusCard}>
           <View style={styles.avatar}>
-            <Txt weight="extrabold" color={colors.white} variant="h2">
-              {profile?.full_name?.trim()?.charAt(0) ?? '👋'}
-            </Txt>
+            {isGuest ? (
+              <Ionicons name="person" size={22} color={colors.white} />
+            ) : (
+              <Txt weight="extrabold" color={colors.white} variant="h2">
+                {profile?.full_name?.trim()?.charAt(0) ?? '👋'}
+              </Txt>
+            )}
           </View>
           <View style={{ flex: 1 }}>
-            <Txt weight="bold">שלום {profile?.full_name?.split(' ')[0] ?? ''} 👋</Txt>
+            <Txt weight="bold">
+              {isGuest ? 'שלום אורח 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''} 👋`}
+            </Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Txt variant="caption" color={colors.textMuted}>{role ? ROLE_LABELS[role] : ''}</Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                {isGuest ? 'גלישה חופשית · התחבר לפעולות' : role ? ROLE_LABELS[role] : ''}
+              </Txt>
               {level ? (
                 <View style={styles.levelPill}>
                   <Ionicons name="shield-checkmark" size={11} color={colors.brand700} />
@@ -173,6 +196,24 @@ export default function Feed() {
           </ScrollView>
         </View>
       </SafeAreaView>
+
+      {/* ── מפה צבעונית אינטראקטיבית בפול-סקרין (נפתחת בלחיצה על מפת הרקע) ── */}
+      <Modal visible={mapOpen} animationType="slide" onRequestClose={() => setMapOpen(false)} presentationStyle="fullScreen">
+        <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
+          <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}><Txt color={colors.white}>מפה זמינה ב-Dev Build</Txt></View>}>
+            <OffersMap offers={offers} variant="fullscreen" mapType="standard" interactive />
+          </MapBoundary>
+          <SafeAreaView edges={['top']} style={styles.modalTop} pointerEvents="box-none">
+            <Pressable onPress={() => setMapOpen(false)} hitSlop={12} style={styles.closeBtn}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </Pressable>
+            <View style={styles.modalTitle}>
+              <Ionicons name="gift" size={16} color={colors.brand700} />
+              <Txt weight="bold" color={colors.brand700}>תרומות זמינות</Txt>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -243,5 +284,32 @@ const styles = StyleSheet.create({
     width: 60, height: 60, borderRadius: 22,
     backgroundColor: colors.brand50,
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  tapHint: {
+    position: 'absolute', top: '38%', alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(20,58,94,0.55)',
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+  },
+
+  modalTop: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg, paddingTop: spacing.sm,
+  },
+  closeBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: CARD_BG,
+    alignItems: 'center', justifyContent: 'center',
+    ...shadow.card,
+  },
+  modalTitle: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: CARD_BG,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    ...shadow.card,
   },
 });
