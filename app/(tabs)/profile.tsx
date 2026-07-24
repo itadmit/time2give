@@ -7,6 +7,7 @@ import { Header, Txt, Card, Button, StatBlock, Divider, Field } from '../../src/
 import { RegionPicker } from '../../src/components/RegionPicker';
 import { useAuth } from '../../src/context/AuthContext';
 import { setMyProfile } from '../../src/lib/api';
+import { getOtaDiagnostics } from '../../src/lib/otaDiagnostics';
 import { supabase } from '../../src/lib/supabase';
 import { ROLE_LABELS, LEVEL_META } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
@@ -26,6 +27,12 @@ export default function Profile() {
   // מזהה אם עדכון כבר הורד ומחכה (יוחל בפתיחה הבאה — לא קוראים reloadAsync כי הוא מקריס עם המפה)
   const { isUpdatePending } = Updates.useUpdates();
 
+  // אבחון OTA מהמכשיר — מציג channel/runtime/updateId + לוג expo-updates אמיתי (rollback/crash)
+  const showDiagnostics = async () => {
+    const report = await getOtaDiagnostics();
+    Alert.alert('אבחון OTA', report, [{ text: 'סגור' }]);
+  };
+
   // בדיקת עדכון OTA ידנית. לא קוראים ל-reloadAsync (מקריס עם MapView) — העדכון מוחל ב-cold-restart.
   const checkUpdates = async () => {
     if (__DEV__ || !Updates.isEnabled) {
@@ -38,12 +45,18 @@ export default function Profile() {
     try {
       const result = await Updates.checkForUpdateAsync();
       if (!result.isAvailable) {
-        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש כרגע.');
+        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש כרגע.', [
+          { text: 'סגור', style: 'cancel' },
+          { text: 'אבחון 🔎', onPress: showDiagnostics },
+        ]);
       }
       await Updates.fetchUpdateAsync();
       Alert.alert('עדכון מוכן ✓', 'גרסה חדשה הותקנה. סגור ופתח את האפליקציה כדי להחיל אותה.', [{ text: 'הבנתי' }]);
     } catch (e: any) {
-      Alert.alert('שגיאה בבדיקת עדכון', e?.message ?? String(e));
+      Alert.alert('שגיאה בבדיקת עדכון', e?.message ?? String(e), [
+        { text: 'סגור', style: 'cancel' },
+        { text: 'אבחון 🔎', onPress: showDiagnostics },
+      ]);
     } finally {
       setCheckingUpdate(false);
     }
