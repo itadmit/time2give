@@ -1,0 +1,42 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://lmutysdplrwelefdostz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_fuOwGjcQc0YjEXQAwWE5KA_WNF1NU2A"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://lmutysdplrwelefdostz.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_fuOwGjcQc0YjEXQAwWE5KA_WNF1NU2A"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleTeamId": "489ALGCMH5",
+        "ascApiKeyPath": "./credentials/AuthKey_3R2CDXYWHR.p8",
+        "ascApiKeyId": "3R2CDXYWHR",
+        "ascApiKeyIssuerId": "ca850403-26d6-4083-88c1-d0366153a25c"
+      }
+    }
+  }
+}
