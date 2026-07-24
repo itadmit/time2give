@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Pressable, Alert } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, StatBlock, Divider, Field } from '../../src/components/ui';
 import { RegionPicker } from '../../src/components/RegionPicker';
@@ -21,6 +22,30 @@ export default function Profile() {
   const [name, setName] = useState('');
   const [regions, setRegions] = useState<Region[]>([]);
   const [saving, setSaving] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  // בדיקת עדכון OTA ידנית (EAS Update) — עוזר לראות שינויי JS ב-TestFlight בלי build חדש
+  const checkUpdates = async () => {
+    if (__DEV__ || !Updates.isEnabled) {
+      return Alert.alert('עדכוני OTA לא פעילים כאן', 'הרצה מקומית / Expo Go לא מקבלת עדכוני OTA. זה עובד רק ב-build אמיתי (TestFlight / חנות).');
+    }
+    setCheckingUpdate(true);
+    try {
+      const result = await Updates.checkForUpdateAsync();
+      if (!result.isAvailable) {
+        setCheckingUpdate(false);
+        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש זמין כרגע.');
+      }
+      await Updates.fetchUpdateAsync();
+      Alert.alert('עדכון הותקן', 'האפליקציה תיטען מחדש כדי להחיל את העדכון.', [
+        { text: 'טען מחדש', onPress: () => Updates.reloadAsync() },
+      ]);
+    } catch (e: any) {
+      Alert.alert('שגיאה בבדיקת עדכון', e?.message ?? String(e));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!profile?.id) return;
@@ -197,6 +222,10 @@ export default function Profile() {
             {profile.roles.includes('admin') ? (
               <Button title="פאנל ניהול" icon="settings" onPress={() => router.push('/admin')} style={{ marginBottom: spacing.md }} />
             ) : null}
+            <Button title="בדוק עדכונים" variant="secondary" icon="cloud-download" onPress={checkUpdates} loading={checkingUpdate} style={{ marginBottom: spacing.md }} />
+            <Txt variant="caption" color={colors.textMuted} center style={{ marginBottom: spacing.md }}>
+              גרסה {Updates.runtimeVersion ?? '—'} · {Updates.updateId ? `OTA ${Updates.updateId.slice(0, 8)}` : 'build מקורי'}
+            </Txt>
             <Button title="התנתקות" variant="ghost" icon="log-out" onPress={signOut} />
           </>
         )}

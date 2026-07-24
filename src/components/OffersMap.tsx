@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { radius } from '../theme/tokens';
@@ -15,14 +16,27 @@ export type MapOffer = {
 // מרכז ישראל - נקודת פתיחה עד שמאתרים את המיקום של המשתמש
 const INITIAL = { latitude: 31.5, longitude: 34.9, latitudeDelta: 3.2, longitudeDelta: 2.2 };
 
-export function OffersMap({ offers, onSelect }: { offers: MapOffer[]; onSelect?: (id: string) => void }) {
+// דלתא הזום כשממרכזים על המשתמש: 'card' = קרוב (טאב תרומות), 'fullscreen' = טיפה רחוק (רקע מסך הבית)
+const USER_DELTA = { card: 0.06, fullscreen: 0.28 } as const;
+
+type Props = {
+  offers: MapOffer[];
+  onSelect?: (id: string) => void;
+  /** 'card' = מפה קטנה בכרטיס (ברירת מחדל). 'fullscreen' = ממלאת את ההורה, זום קצת רחוק, ללא כפתורים */
+  variant?: 'card' | 'fullscreen';
+  style?: StyleProp<ViewStyle>;
+};
+
+export function OffersMap({ offers, onSelect, variant = 'card', style }: Props) {
   const mapRef = useRef<MapView>(null);
   const withCoords = offers.filter((o) => o.origin_lat != null && o.origin_lng != null);
+  const isFull = variant === 'fullscreen';
 
-  // בעלייה - אם כבר יש הרשאת מיקום (אושרה במודל הכניסה), ממרכזים את המפה קרוב למשתמש.
+  // בעלייה - אם כבר יש הרשאת מיקום (אושרה במודל הכניסה), ממרכזים את המפה על המשתמש.
   // לא מבקשים כאן הרשאה כדי לא לפתוח דיאלוג פעמיים - הבקשה מטופלת ב-LocationPrompt.
   useEffect(() => {
     let cancelled = false;
+    const delta = USER_DELTA[variant];
     (async () => {
       try {
         const { status } = await Location.getForegroundPermissionsAsync();
@@ -30,7 +44,7 @@ export function OffersMap({ offers, onSelect }: { offers: MapOffer[]; onSelect?:
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (cancelled) return;
         mapRef.current?.animateToRegion(
-          { latitude: pos.coords.latitude, longitude: pos.coords.longitude, latitudeDelta: 0.06, longitudeDelta: 0.06 },
+          { latitude: pos.coords.latitude, longitude: pos.coords.longitude, latitudeDelta: delta, longitudeDelta: delta },
           700,
         );
       } catch {
@@ -40,15 +54,17 @@ export function OffersMap({ offers, onSelect }: { offers: MapOffer[]; onSelect?:
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [variant]);
 
   return (
     <MapView
       ref={mapRef}
-      style={{ height: 220, borderRadius: radius.lg }}
+      style={[isFull ? StyleSheet.absoluteFill : styles.card, style]}
       initialRegion={INITIAL}
       showsUserLocation
-      showsMyLocationButton
+      showsMyLocationButton={!isFull}
+      toolbarEnabled={!isFull}
+      pointerEvents={isFull ? 'none' : 'auto'}
     >
       {withCoords.map((o) => (
         <Marker
@@ -62,3 +78,7 @@ export function OffersMap({ offers, onSelect }: { offers: MapOffer[]; onSelect?:
     </MapView>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { height: 220, borderRadius: radius.lg },
+});

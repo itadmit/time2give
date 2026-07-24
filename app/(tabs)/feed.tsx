@@ -1,27 +1,35 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, RefreshControl, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
+import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Txt, Card, Button, StatBlock, EmptyState } from '../../src/components/ui';
+import { Txt } from '../../src/components/ui';
 import { HelpModal } from '../../src/components/HelpModal';
+import { MapBoundary } from '../../src/components/MapBoundary';
+import { OffersMap, type MapOffer } from '../../src/components/OffersMap';
 import { useAuth } from '../../src/context/AuthContext';
 import { useNotifications } from '../../src/context/NotificationsContext';
-import { FloatingCTA } from '../../src/components/FloatingCTA';
+import { ROLE_LABELS, LEVEL_META } from '../../src/lib/domain';
 import { supabase } from '../../src/lib/supabase';
-import { ROLE_LABELS } from '../../src/lib/domain';
-import { colors, spacing } from '../../src/theme/tokens';
+import { colors, spacing, radius, shadow } from '../../src/theme/tokens';
 
 type FeedEvent = { id: number; type: string; payload: any; created_at: string };
+type Cmd = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; primary?: boolean };
 
+/**
+ * דף בית בסגנון אפליקציית Tesla:
+ *  - מפה כקנבס מלא ברקע (ממורכזת על המשתמש).
+ *  - כרטיס סטטוס צף למעלה (מי אני + מוניטין + התראות).
+ *  - "דוק" פקודות צף למטה: סטטיסטיקות חיות + שורת כפתורי פעולה מעוגלים + הצצה לפעילות הקהילה.
+ * אין גלילת-עמוד: המפה שולטת, הכל צף מעליה.
+ */
 export default function Feed() {
   const { profile } = useAuth();
   const { unread } = useNotifications();
   const router = useRouter();
   const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [offers, setOffers] = useState<MapOffer[]>([]);
   const [totals, setTotals] = useState({ donations: 0, units: 0 });
-  const [refreshing, setRefreshing] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const load = useCallback(async () => {
@@ -34,115 +42,206 @@ export default function Feed() {
         units: agg.reduce((s: number, r: any) => s + (r.total_units ?? 0), 0),
       });
     }
+    const { data: off } = await supabase
+      .from('open_offers_v')
+      .select('id,food_type,quantity,unit_label,origin_lat,origin_lng');
+    setOffers((off as MapOffer[]) ?? []);
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
-
   const role = profile?.roles?.[0];
+  const level = profile ? LEVEL_META[profile.reputation_level] : null;
+
+  // שורת הפקודות תלוית-תפקיד (סגנון "כפתורי שליטה" של טסלה)
+  const commands: Cmd[] = (() => {
+    const map: Cmd = { key: 'map', label: 'מפת תרומות', icon: 'map', onPress: () => router.push('/(tabs)/map') };
+    const activity: Cmd = { key: 'activity', label: 'הפעילות שלי', icon: 'time', onPress: () => router.push('/(tabs)/activity') };
+    switch (role) {
+      case 'donor':
+        return [
+          { key: 'offer', label: 'פרסם תרומה', icon: 'gift', primary: true, onPress: () => router.push('/offer/new') },
+          { key: 'needs', label: 'בקשות באזור', icon: 'megaphone', onPress: () => router.push('/(tabs)/needs') },
+          map, activity,
+        ];
+      case 'recipient':
+        return [
+          { key: 'need', label: 'בקש תרומה', icon: 'megaphone', primary: true, onPress: () => router.push('/need/new') },
+          map, activity,
+        ];
+      case 'coordinator':
+        return [
+          { key: 'dispatch', label: 'ממתין לשינוע', icon: 'git-network', primary: true, onPress: () => router.push('/(tabs)/activity') },
+          map,
+        ];
+      case 'courier':
+        return [{ key: 'my', label: 'המשלוחים שלי', icon: 'car', primary: true, onPress: () => router.push('/(tabs)/activity') }, map];
+      default:
+        return [map, activity];
+    }
+  })();
+
+  const latest = events[0];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.brand700 }}>
-        <View style={[styles.hero, { flexDirection: 'row', alignItems: 'center' }]}>
-          <View style={{ flex: 1 }}>
-            <Txt variant="caption" color={colors.brand100}>
-              שלום {profile?.full_name?.split(' ')[0] ?? ''} 👋
-            </Txt>
-            <Txt variant="h1" weight="extrabold" color={colors.white}>
-              Time2Give
-            </Txt>
-            <Txt variant="caption" color={colors.brand100}>
-              {role ? ROLE_LABELS[role] : ''}
+    <View style={{ flex: 1, backgroundColor: colors.brand700 }}>
+      {/* מפת רקע פול-סקרין (ממורכזת על המשתמש). נופלת חיננית לרקע מותג ב-Expo Go */}
+      <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, { backgroundColor: colors.brand700 }]} />}>
+        <OffersMap offers={offers} variant="fullscreen" />
+      </MapBoundary>
+
+      {/* ── כרטיס סטטוס צף עליון ── */}
+      <SafeAreaView edges={['top']} style={styles.topWrap} pointerEvents="box-none">
+        <View style={styles.statusCard}>
+          <View style={styles.avatar}>
+            <Txt weight="extrabold" color={colors.white} variant="h2">
+              {profile?.full_name?.trim()?.charAt(0) ?? '👋'}
             </Txt>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
-            <Pressable onPress={() => setHelpOpen(true)} hitSlop={12}>
-              <Ionicons name="help-circle-outline" size={27} color={colors.white} />
-            </Pressable>
-            <Pressable onPress={() => router.push('/notifications')} hitSlop={12}>
-              <Ionicons name="notifications" size={26} color={colors.white} />
-              {unread > 0 ? (
-                <View style={styles.badge}>
-                  <Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 10 }}>
-                    {unread > 9 ? '9+' : unread}
-                  </Txt>
+          <View style={{ flex: 1 }}>
+            <Txt weight="bold">שלום {profile?.full_name?.split(' ')[0] ?? ''} 👋</Txt>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Txt variant="caption" color={colors.textMuted}>{role ? ROLE_LABELS[role] : ''}</Txt>
+              {level ? (
+                <View style={styles.levelPill}>
+                  <Ionicons name="shield-checkmark" size={11} color={colors.brand700} />
+                  <Txt variant="caption" weight="medium" color={colors.brand700}>{level.label}</Txt>
                 </View>
               ) : null}
-            </Pressable>
+            </View>
           </View>
+          <Pressable onPress={() => setHelpOpen(true)} hitSlop={10} style={styles.iconBtn}>
+            <Ionicons name="help-circle-outline" size={22} color={colors.brand700} />
+          </Pressable>
+          <Pressable onPress={() => router.push('/notifications')} hitSlop={10} style={styles.iconBtn}>
+            <Ionicons name="notifications" size={20} color={colors.brand700} />
+            {unread > 0 ? (
+              <View style={styles.badge}>
+                <Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 9 }}>
+                  {unread > 9 ? '9+' : unread}
+                </Txt>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
       </SafeAreaView>
 
       <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} role={role} />
 
-      <ScrollView
-        contentContainerStyle={{ padding: spacing.lg }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand700} />}
-      >
-        <Card style={{ marginTop: spacing.md, flexDirection: 'row', paddingVertical: spacing.xl }}>
-          <StatBlock value={totals.units.toLocaleString()} label="מנות שחולקו" />
-          <View style={{ width: 1, backgroundColor: colors.border }} />
-          <StatBlock value={totals.donations.toLocaleString()} label="תרומות" />
-        </Card>
-
-        <View style={{ height: spacing.lg }} />
-
-        {/* Role CTAs */}
-        {role === 'recipient' && (
-          <Button title="פרסם בקשת תרומה חדשה" icon="megaphone" onPress={() => router.push('/need/new')} />
-        )}
-        {role === 'donor' && (
-          <View style={{ gap: 10 }}>
-            <Button title="פרסם תרומה מוכנה" icon="gift" onPress={() => router.push('/offer/new')} />
-            <Button title="בקשות פתוחות באזורך" variant="secondary" icon="megaphone" onPress={() => router.push('/(tabs)/needs')} />
+      {/* ── דוק פקודות צף תחתון ── */}
+      <SafeAreaView edges={['bottom']} style={styles.dockWrap} pointerEvents="box-none">
+        {/* הצצה לפעילות הקהילה (צ'יפ) */}
+        {latest ? (
+          <View style={styles.communityChip}>
+            <Ionicons name="ribbon" size={16} color={colors.success} />
+            <Txt variant="caption" weight="medium" style={{ flex: 1 }} numberOfLines={1}>
+              {latest.payload?.text ?? 'פעילות חדשה בקהילה'}
+            </Txt>
           </View>
-        )}
-        {role === 'coordinator' && (
-          <Button title="תרומות הממתינות לשינוע" icon="git-network" onPress={() => router.push('/(tabs)/activity')} />
-        )}
-        {role === 'courier' && (
-          <Button title="המשלוחים שלי" icon="car" onPress={() => router.push('/(tabs)/activity')} />
-        )}
+        ) : null}
 
-        <View style={{ height: spacing.xl }} />
-        <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
-          מה קורה בקהילה
-        </Txt>
+        <View style={styles.dock}>
+          {/* סטטיסטיקות חיות */}
+          <View style={styles.statsRow}>
+            <View style={styles.stat}>
+              <Txt variant="h2" weight="extrabold" color={colors.brand700}>{totals.units.toLocaleString()}</Txt>
+              <Txt variant="caption" color={colors.textMuted}>מנות שחולקו</Txt>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Txt variant="h2" weight="extrabold" color={colors.brand700}>{totals.donations.toLocaleString()}</Txt>
+              <Txt variant="caption" color={colors.textMuted}>תרומות</Txt>
+            </View>
+          </View>
 
-        {events.length === 0 ? (
-          <EmptyState icon="people-outline" title="עדיין שקט כאן" subtitle="פעולות בקהילה יופיעו כאן" />
-        ) : (
-          events.map((e) => (
-            <Card key={e.id} style={{ marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Ionicons name="ribbon" size={24} color={colors.success} />
-              <Txt variant="small">{e.payload?.text ?? e.type}</Txt>
-            </Card>
-          ))
-        )}
-      </ScrollView>
-      <FloatingCTA />
+          {/* שורת כפתורי פקודה (סגנון טסלה) */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.cmdRow}
+          >
+            {commands.map((c) => (
+              <Pressable key={c.key} onPress={c.onPress} style={({ pressed }) => [styles.cmd, pressed && { opacity: 0.85 }]}>
+                <View style={[styles.cmdIcon, c.primary && { backgroundColor: colors.secondary }]}>
+                  <Ionicons name={c.icon} size={24} color={c.primary ? colors.white : colors.brand700} />
+                </View>
+                <Txt variant="caption" weight="medium" center numberOfLines={1} style={{ maxWidth: 74 }}>
+                  {c.label}
+                </Txt>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
-const styles = {
-  hero: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, paddingTop: spacing.lg, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-  badge: {
-    position: 'absolute' as const,
-    top: -6,
-    left: -6,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.danger,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    paddingHorizontal: 4,
+const CARD_BG = 'rgba(255,255,255,0.96)';
+
+const styles = StyleSheet.create({
+  topWrap: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: spacing.lg },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: CARD_BG,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    ...shadow.card,
   },
-};
+  avatar: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: colors.brand700,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  levelPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: colors.brand50,
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill,
+  },
+  iconBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.brand50,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute', top: 2, left: 2,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: colors.danger,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+  },
+
+  dockWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  communityChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    alignSelf: 'center',
+    backgroundColor: CARD_BG,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg, paddingVertical: spacing.sm,
+    marginBottom: spacing.sm, maxWidth: '100%',
+    ...shadow.card,
+  },
+  dock: {
+    backgroundColor: CARD_BG,
+    borderRadius: 28,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    ...shadow.card,
+  },
+  statsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.xl, paddingBottom: spacing.md,
+  },
+  stat: { flex: 1, alignItems: 'center', gap: 2 },
+  statDivider: { width: 1, height: 32, backgroundColor: colors.border },
+  cmdRow: { paddingHorizontal: spacing.lg, gap: spacing.lg, alignItems: 'flex-start' },
+  cmd: { alignItems: 'center', gap: 6, width: 76 },
+  cmdIcon: {
+    width: 60, height: 60, borderRadius: 22,
+    backgroundColor: colors.brand50,
+    alignItems: 'center', justifyContent: 'center',
+  },
+});
