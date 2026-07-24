@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Pressable, StyleSheet, Modal } from 'react-native';
+import { View, Pressable, StyleSheet, Modal } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +14,7 @@ import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius, shadow } from '../../src/theme/tokens';
 
 type FeedEvent = { id: number; type: string; payload: any; created_at: string };
-type Cmd = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; primary?: boolean };
+type Intent = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void };
 
 /**
  * דף בית בסגנון אפליקציית Tesla:
@@ -55,39 +55,14 @@ export default function Feed() {
   const role = profile?.roles?.[0];
   const level = profile ? LEVEL_META[profile.reputation_level] : null;
 
-  // שורת הפקודות תלוית-תפקיד (סגנון "כפתורי שליטה" של טסלה)
-  const commands: Cmd[] = (() => {
-    const map: Cmd = { key: 'map', label: 'פתח מפה', icon: 'map', onPress: () => setMapOpen(true) };
-    const activity: Cmd = { key: 'activity', label: 'הפעילות שלי', icon: 'time', onPress: () => router.push('/(tabs)/activity') };
-    if (isGuest) {
-      return [
-        { key: 'login', label: 'הרשמה / התחברות', icon: 'log-in', primary: true, onPress: () => router.push('/(auth)/phone') },
-        map,
-      ];
-    }
-    switch (role) {
-      case 'donor':
-        return [
-          { key: 'offer', label: 'פרסם תרומה', icon: 'gift', primary: true, onPress: () => router.push('/offer/new') },
-          { key: 'needs', label: 'בקשות באזור', icon: 'megaphone', onPress: () => router.push('/(tabs)/needs') },
-          map, activity,
-        ];
-      case 'recipient':
-        return [
-          { key: 'need', label: 'בקש תרומה', icon: 'megaphone', primary: true, onPress: () => router.push('/need/new') },
-          map, activity,
-        ];
-      case 'coordinator':
-        return [
-          { key: 'dispatch', label: 'ממתין לשינוע', icon: 'git-network', primary: true, onPress: () => router.push('/(tabs)/activity') },
-          map,
-        ];
-      case 'courier':
-        return [{ key: 'my', label: 'המשלוחים שלי', icon: 'car', primary: true, onPress: () => router.push('/(tabs)/activity') }, map];
-      default:
-        return [map, activity];
-    }
-  })();
+  // "במה אתה מעוניין?" — בורר כוונה. אורח → הרשמה/התחברות; מחובר → מסך הפעולה המתאים.
+  const go = (loggedInPath: string) => () => router.push(isGuest ? '/(auth)/phone' : (loggedInPath as any));
+  const intents: Intent[] = [
+    { key: 'seek', label: 'אני מחפש תרומה', icon: 'search', onPress: go('/need/new') },
+    { key: 'donate', label: 'אני רוצה לתרום', icon: 'gift', onPress: go('/offer/new') },
+    { key: 'transport', label: 'אני רוצה לשנע את התרומה', icon: 'car', onPress: go('/(tabs)/activity') },
+    { key: 'coordinator', label: 'רוצה להצטרף כרכז', icon: 'git-network', onPress: go('/(tabs)/activity') },
+  ];
 
   const latest = events[0];
 
@@ -177,23 +152,23 @@ export default function Feed() {
             </View>
           </View>
 
-          {/* שורת כפתורי פקודה (סגנון טסלה) */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cmdRow}
-          >
-            {commands.map((c) => (
-              <Pressable key={c.key} onPress={c.onPress} style={({ pressed }) => [styles.cmd, pressed && { opacity: 0.85 }]}>
-                <View style={[styles.cmdIcon, c.primary && { backgroundColor: colors.secondary }]}>
-                  <Ionicons name={c.icon} size={24} color={c.primary ? colors.white : colors.brand700} />
+          {/* "במה אתה מעוניין?" — בורר כוונה */}
+          <Txt weight="bold" style={styles.intentTitle}>במה אתה מעוניין?</Txt>
+          <View style={styles.intentList}>
+            {intents.map((it) => (
+              <Pressable
+                key={it.key}
+                onPress={it.onPress}
+                style={({ pressed }) => [styles.intentRow, pressed && { backgroundColor: colors.brand50 }]}
+              >
+                <View style={styles.intentIcon}>
+                  <Ionicons name={it.icon} size={20} color={colors.brand700} />
                 </View>
-                <Txt variant="caption" weight="medium" center numberOfLines={1} style={{ maxWidth: 74 }}>
-                  {c.label}
-                </Txt>
+                <Txt weight="medium" style={{ flex: 1 }}>{it.label}</Txt>
+                <Ionicons name="chevron-back" size={18} color={colors.textMuted} />
               </Pressable>
             ))}
-          </ScrollView>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -278,10 +253,17 @@ const styles = StyleSheet.create({
   },
   stat: { flex: 1, alignItems: 'center', gap: 2 },
   statDivider: { width: 1, height: 32, backgroundColor: colors.border },
-  cmdRow: { paddingHorizontal: spacing.lg, gap: spacing.lg, alignItems: 'flex-start' },
-  cmd: { alignItems: 'center', gap: 6, width: 76 },
-  cmdIcon: {
-    width: 60, height: 60, borderRadius: 22,
+
+  intentTitle: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  intentList: { paddingHorizontal: spacing.lg, gap: spacing.sm },
+  intentRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    paddingVertical: spacing.md, paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  intentIcon: {
+    width: 40, height: 40, borderRadius: 14,
     backgroundColor: colors.brand50,
     alignItems: 'center', justifyContent: 'center',
   },
