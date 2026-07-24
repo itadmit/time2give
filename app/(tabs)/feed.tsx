@@ -191,7 +191,7 @@ export default function Feed() {
       <Pressable style={StyleSheet.absoluteFill} onPress={() => setMapOpen(true)}>
         <View style={styles.tapHint} pointerEvents="none">
           <Ionicons name="expand" size={14} color={colors.white} />
-          <Txt variant="caption" weight="medium" color={colors.white}>הקש למפה מלאה</Txt>
+          <Txt variant="caption" weight="medium" color={colors.white}>פתח את המפה המלאה 🗺️</Txt>
         </View>
       </Pressable>
 
