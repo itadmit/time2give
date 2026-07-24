@@ -23,18 +23,31 @@ export default function Profile() {
   const [regions, setRegions] = useState<Region[]>([]);
   const [saving, setSaving] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  // מזהה אם עדכון כבר הורד ומחכה להפעלה מחדש (המצב הנפוץ שגורם ל"לא מתעדכן")
+  const { isUpdatePending } = Updates.useUpdates();
 
   // בדיקת עדכון OTA ידנית (EAS Update) — עוזר לראות שינויי JS ב-TestFlight בלי build חדש
   const checkUpdates = async () => {
     if (__DEV__ || !Updates.isEnabled) {
       return Alert.alert('עדכוני OTA לא פעילים כאן', 'הרצה מקומית / Expo Go לא מקבלת עדכוני OTA. זה עובד רק ב-build אמיתי (TestFlight / חנות).');
     }
+    // אם עדכון כבר הורד ברקע — רק צריך לטעון מחדש כדי להחיל אותו
+    if (isUpdatePending) {
+      return Alert.alert('עדכון מוכן ✓', 'עדכון כבר הורד ומחכה. לטעון מחדש עכשיו?', [
+        { text: 'אחר כך', style: 'cancel' },
+        { text: 'טען מחדש', onPress: () => Updates.reloadAsync() },
+      ]);
+    }
     setCheckingUpdate(true);
     try {
       const result = await Updates.checkForUpdateAsync();
       if (!result.isAvailable) {
         setCheckingUpdate(false);
-        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש זמין כרגע.');
+        // ייתכן שעדכון כבר הורד קודם אך טרם הופעל — נותנים אפשרות לטעון מחדש בכל זאת
+        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש בשרת. אם שינוי אמור כבר להיות מותקן, נסה לטעון מחדש.', [
+          { text: 'סגור', style: 'cancel' },
+          { text: 'טען מחדש בכל זאת', onPress: () => Updates.reloadAsync() },
+        ]);
       }
       await Updates.fetchUpdateAsync();
       Alert.alert('עדכון הותקן', 'האפליקציה תיטען מחדש כדי להחיל את העדכון.', [
@@ -71,6 +84,10 @@ export default function Profile() {
             אפשר לצפות בתרומות בחופשיות. כדי לבקש תרומה, לאשר, או לפרסם — יש להתחבר.
           </Txt>
           <Button title="הרשמה / התחברות" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ alignSelf: 'stretch' }} />
+          <Button title="בדוק עדכונים" variant="secondary" icon="cloud-download" onPress={checkUpdates} loading={checkingUpdate} style={{ alignSelf: 'stretch' }} />
+          <Txt variant="caption" color={colors.textMuted} center>
+            גרסה {Updates.runtimeVersion ?? '—'} · {Updates.updateId ? `OTA ${Updates.updateId.slice(0, 8)}` : 'build מקורי'}
+          </Txt>
         </View>
       </View>
     );
