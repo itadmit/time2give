@@ -129,6 +129,15 @@ export async function adminApproveUser(user_id: string, approve: boolean) {
   return supabase.rpc('admin_approve_user', { p_user: user_id, p_approve: approve });
 }
 
+// ─── הגדרות אינטגרציה (WhatsApp / iBot) ───
+export async function adminGetIntegrationConfig() {
+  return supabase.rpc('admin_get_integration_config');
+}
+
+export async function adminSetIntegrationConfig(key: string, value: string) {
+  return supabase.rpc('admin_set_integration_config', { p_key: key, p_value: value });
+}
+
 // ─── כלי בדיקות (אדמין) ───
 export async function adminResetAll() {
   return supabase.rpc('admin_reset_all');

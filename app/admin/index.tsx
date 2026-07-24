@@ -2,9 +2,16 @@ import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Alert, RefreshControl } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Header, Txt, Card, Button, EmptyState, Divider } from '../../src/components/ui';
+import { Header, Txt, Card, Button, EmptyState, Divider, Field } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
-import { adminKpis, adminPendingUsers, adminApproveUser, adminResetAll } from '../../src/lib/api';
+import {
+  adminKpis,
+  adminPendingUsers,
+  adminApproveUser,
+  adminResetAll,
+  adminGetIntegrationConfig,
+  adminSetIntegrationConfig,
+} from '../../src/lib/api';
 import { ROLE_LABELS, type UserRole } from '../../src/lib/domain';
 import { colors, spacing } from '../../src/theme/tokens';
 
@@ -29,6 +36,9 @@ export default function AdminPanel() {
   const [pending, setPending] = useState<PendingUser[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [waToken, setWaToken] = useState('');
+  const [waInstance, setWaInstance] = useState('');
+  const [waSaving, setWaSaving] = useState(false);
 
   const load = useCallback(async () => {
     const { data: k, error: kErr } = await adminKpis();
@@ -40,6 +50,10 @@ export default function AdminPanel() {
     setKpis(k as Record<string, any>);
     const { data: p } = await adminPendingUsers();
     setPending((p as PendingUser[]) ?? []);
+    const { data: cfg } = await adminGetIntegrationConfig();
+    const map = Object.fromEntries(((cfg as { key: string; value: string | null }[]) ?? []).map((r) => [r.key, r.value ?? '']));
+    setWaToken(map['whatsapp_token'] ?? '');
+    setWaInstance(map['whatsapp_instance_id'] ?? '');
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -54,6 +68,15 @@ export default function AdminPanel() {
     const { error } = await adminApproveUser(u.id, approve);
     if (error) return Alert.alert('שגיאה', error.message);
     await load();
+  };
+
+  const saveWhatsapp = async () => {
+    setWaSaving(true);
+    const r1 = await adminSetIntegrationConfig('whatsapp_token', waToken.trim());
+    const r2 = await adminSetIntegrationConfig('whatsapp_instance_id', waInstance.trim());
+    setWaSaving(false);
+    if (r1.error || r2.error) return Alert.alert('שגיאה', (r1.error ?? r2.error)!.message);
+    Alert.alert('נשמר', 'פרטי ה-WhatsApp עודכנו. קודי האימות יישלחו דרך iBot.');
   };
 
   const resetAll = () => {
@@ -114,6 +137,33 @@ export default function AdminPanel() {
             <Divider />
           </>
         ) : null}
+
+        <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
+          WhatsApp (iBot) — קודי אימות
+        </Txt>
+        <Card style={{ marginBottom: spacing.lg }}>
+          <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: spacing.sm }}>
+            קודי ה-OTP נשלחים ב-WhatsApp דרך iBot. הזן את ה-Token וה-Instance ID מהדשבורד של iBot.
+          </Txt>
+          <Field
+            label="Token"
+            value={waToken}
+            onChangeText={setWaToken}
+            placeholder="eyJhbGciOi..."
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Field
+            label="Instance ID"
+            value={waInstance}
+            onChangeText={setWaInstance}
+            placeholder="eyJ1aWQiOi..."
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Button title="שמור פרטי WhatsApp" icon="logo-whatsapp" onPress={saveWhatsapp} loading={waSaving} style={{ marginTop: spacing.sm }} />
+        </Card>
+        <Divider />
 
         <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
           כלי בדיקות
