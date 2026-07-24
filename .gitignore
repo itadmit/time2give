@@ -44,3 +44,5 @@ Thumbs.db
 
 expo-env.d.ts
 # @end expo-cli
+# Claude Code harness (local only)
+.claude/
