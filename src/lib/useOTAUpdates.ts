@@ -10,10 +10,15 @@ interface OTAState {
 }
 
 /**
- * OTA update hook — מבוסס על התבנית שעובדת ב-QuickCRM של המשתמש.
- * בודק עדכון בעליית האפליקציה ובחזרה מרקע, מוריד אותו, ומציג Alert.
- * reloadAsync נקרא **רק** בלחיצת המשתמש על "הפעל מחדש" — אחרי טעינה מלאה,
- * מה שנמנע מהקריסה של reloadAsync אוטומטי בזמן boot.
+ * OTA update hook.
+ *
+ * ⚠️ ההיסטוריה: `Updates.reloadAsync()` מקריס את האפליקציה הזאת — יש MapView חי
+ * במסך הבית, ו-react-native-maps + הריסת ה-bridge בזמן reload = קריסה נייטיבית.
+ * לעומת זאת הוכח (גרסה התחלפה אחרי cold-restart) ש**עדכון שהורד עם `fetchUpdateAsync`
+ * מוחל אמין בהפעלה הבאה של האפליקציה, בלי reloadAsync**.
+ *
+ * לכן: בודקים, מורידים (fetch → staged), ומיידעים את המשתמש שהעדכון ייכנס בפתיחה הבאה.
+ * לא קוראים ל-reloadAsync בכלל.
  */
 export function useOTAUpdates() {
   const [state, setState] = useState<OTAState>({
@@ -22,46 +27,36 @@ export function useOTAUpdates() {
     isReady: false,
     error: null,
   });
+  // כדי לא להציג את ה-Alert שוב ושוב עבור אותו עדכון בזמן ריצה
+  const [notified, setNotified] = useState(false);
 
   const checkForUpdate = useCallback(async () => {
     if (__DEV__ || !Updates.isEnabled) return;
-
     try {
-      setState((prev) => ({ ...prev, isChecking: true, error: null }));
-
+      setState((p) => ({ ...p, isChecking: true, error: null }));
       const update = await Updates.checkForUpdateAsync();
 
       if (update.isAvailable) {
-        setState((prev) => ({ ...prev, isChecking: false, isDownloading: true }));
+        setState((p) => ({ ...p, isChecking: false, isDownloading: true }));
+        await Updates.fetchUpdateAsync(); // מוריד ומכין (staged) — יוחל ב-cold-restart
+        setState((p) => ({ ...p, isDownloading: false, isReady: true }));
 
-        await Updates.fetchUpdateAsync();
-
-        setState((prev) => ({ ...prev, isDownloading: false, isReady: true }));
-
-        Alert.alert(
-          'עדכון זמין',
-          'גרסה חדשה של Time2Give מוכנה. להפעיל מחדש עכשיו?',
-          [
-            { text: 'מאוחר יותר', style: 'cancel' },
-            {
-              text: 'הפעל מחדש',
-              onPress: async () => {
-                await Updates.reloadAsync();
-              },
-            },
-          ],
-          { cancelable: false },
-        );
+        setNotified((already) => {
+          if (!already) {
+            Alert.alert(
+              'עדכון מוכן ✓',
+              'גרסה חדשה של Time2Give הותקנה. סגור ופתח את האפליקציה כדי להחיל אותה.',
+              [{ text: 'הבנתי' }],
+              { cancelable: true },
+            );
+          }
+          return true;
+        });
       } else {
-        setState((prev) => ({ ...prev, isChecking: false }));
+        setState((p) => ({ ...p, isChecking: false }));
       }
     } catch (e: any) {
-      setState((prev) => ({
-        ...prev,
-        isChecking: false,
-        isDownloading: false,
-        error: e?.message || 'שגיאה בבדיקת עדכונים',
-      }));
+      setState((p) => ({ ...p, isChecking: false, isDownloading: false, error: e?.message || 'שגיאה בבדיקת עדכונים' }));
     }
   }, []);
 
@@ -70,11 +65,11 @@ export function useOTAUpdates() {
   }, [checkForUpdate]);
 
   useEffect(() => {
-    const handleAppStateChange = (nextState: AppStateStatus) => {
-      if (nextState === 'active') checkForUpdate();
+    const onChange = (s: AppStateStatus) => {
+      if (s === 'active') checkForUpdate();
     };
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
+    const sub = AppState.addEventListener('change', onChange);
+    return () => sub.remove();
   }, [checkForUpdate]);
 
   return { ...state, checkForUpdate };

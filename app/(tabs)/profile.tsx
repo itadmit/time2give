@@ -23,36 +23,25 @@ export default function Profile() {
   const [regions, setRegions] = useState<Region[]>([]);
   const [saving, setSaving] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
-  // מזהה אם עדכון כבר הורד ומחכה להפעלה מחדש (המצב הנפוץ שגורם ל"לא מתעדכן")
+  // מזהה אם עדכון כבר הורד ומחכה (יוחל בפתיחה הבאה — לא קוראים reloadAsync כי הוא מקריס עם המפה)
   const { isUpdatePending } = Updates.useUpdates();
 
-  // בדיקת עדכון OTA ידנית (EAS Update) — עוזר לראות שינויי JS ב-TestFlight בלי build חדש
+  // בדיקת עדכון OTA ידנית. לא קוראים ל-reloadAsync (מקריס עם MapView) — העדכון מוחל ב-cold-restart.
   const checkUpdates = async () => {
     if (__DEV__ || !Updates.isEnabled) {
       return Alert.alert('עדכוני OTA לא פעילים כאן', 'הרצה מקומית / Expo Go לא מקבלת עדכוני OTA. זה עובד רק ב-build אמיתי (TestFlight / חנות).');
     }
-    // אם עדכון כבר הורד ברקע — רק צריך לטעון מחדש כדי להחיל אותו
     if (isUpdatePending) {
-      return Alert.alert('עדכון מוכן ✓', 'עדכון כבר הורד ומחכה. לטעון מחדש עכשיו?', [
-        { text: 'אחר כך', style: 'cancel' },
-        { text: 'טען מחדש', onPress: () => Updates.reloadAsync() },
-      ]);
+      return Alert.alert('עדכון מוכן ✓', 'עדכון כבר הורד. סגור ופתח את האפליקציה כדי להחיל אותו.', [{ text: 'הבנתי' }]);
     }
     setCheckingUpdate(true);
     try {
       const result = await Updates.checkForUpdateAsync();
       if (!result.isAvailable) {
-        setCheckingUpdate(false);
-        // ייתכן שעדכון כבר הורד קודם אך טרם הופעל — נותנים אפשרות לטעון מחדש בכל זאת
-        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש בשרת. אם שינוי אמור כבר להיות מותקן, נסה לטעון מחדש.', [
-          { text: 'סגור', style: 'cancel' },
-          { text: 'טען מחדש בכל זאת', onPress: () => Updates.reloadAsync() },
-        ]);
+        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש כרגע.');
       }
       await Updates.fetchUpdateAsync();
-      Alert.alert('עדכון הותקן', 'האפליקציה תיטען מחדש כדי להחיל את העדכון.', [
-        { text: 'טען מחדש', onPress: () => Updates.reloadAsync() },
-      ]);
+      Alert.alert('עדכון מוכן ✓', 'גרסה חדשה הותקנה. סגור ופתח את האפליקציה כדי להחיל אותה.', [{ text: 'הבנתי' }]);
     } catch (e: any) {
       Alert.alert('שגיאה בבדיקת עדכון', e?.message ?? String(e));
     } finally {
