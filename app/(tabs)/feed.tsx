@@ -209,7 +209,7 @@ export default function Feed() {
           </View>
           <View style={{ flex: 1 }}>
             <Txt weight="bold">
-              {isGuest ? 'שלום אורח 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''} 👋`}
+              {isGuest ? 'שלום אורח בדיקה 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''} 👋`}
             </Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <Txt variant="caption" color={colors.textMuted}>
