@@ -210,7 +210,7 @@ export default function Feed() {
             </Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <Txt variant="caption" color={colors.textMuted}>
-                {isGuest ? 'גלישה חופשית · התחבר לפעולות' : role ? ROLE_LABELS[role] : ''}
+                {isGuest ? 'התחבר לפעולות' : role ? ROLE_LABELS[role] : ''}
               </Txt>
               {level ? (
                 <View style={styles.levelPill}>
