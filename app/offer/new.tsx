@@ -3,7 +3,7 @@ import { View, Alert, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, Header, Field, Button, Txt, Card } from '../../src/components/ui';
+import { Screen, Header, Field, Button, Txt, Card, Stepper } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
 import { RegionPicker } from '../../src/components/RegionPicker';
 import { useAuth } from '../../src/context/AuthContext';
@@ -24,48 +24,6 @@ function Toggle({ label, value, onToggle }: { label: string; value: boolean; onT
         {label}
       </Txt>
     </Pressable>
-  );
-}
-
-/** מחוון שלבים - עיגולים ממוספרים עם קו מחבר */
-function StepIndicator({ step }: { step: number }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, marginBottom: spacing.lg }}>
-      {STEPS.map((label, i) => {
-        const done = i < step;
-        const active = i === step;
-        return (
-          <React.Fragment key={label}>
-            <View style={{ alignItems: 'center', width: 80 }}>
-              <View
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: done || active ? colors.brand700 : colors.brand50,
-                }}
-              >
-                {done ? (
-                  <Ionicons name="checkmark" size={18} color={colors.white} />
-                ) : (
-                  <Txt variant="small" weight="bold" color={active ? colors.white : colors.textMuted}>
-                    {i + 1}
-                  </Txt>
-                )}
-              </View>
-              <Txt variant="caption" weight={active ? 'bold' : 'regular'} color={active ? colors.brand700 : colors.textMuted} center style={{ marginTop: 4 }}>
-                {label}
-              </Txt>
-            </View>
-            {i < STEPS.length - 1 ? (
-              <View style={{ flex: 1, height: 2, backgroundColor: i < step ? colors.brand700 : colors.border, marginBottom: 18 }} />
-            ) : null}
-          </React.Fragment>
-        );
-      })}
-    </View>
   );
 }
 
@@ -162,7 +120,7 @@ export default function NewOffer() {
       <Header title="יצירת תרומה חדשה" onBack={back} />
       <Screen scroll>
         <View style={{ marginTop: spacing.md }}>
-          <StepIndicator step={step} />
+          <Stepper steps={STEPS} current={step} />
         </View>
 
         {/* שלב 1 - פרטי התרומה */}

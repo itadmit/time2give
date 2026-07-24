@@ -213,6 +213,37 @@ export function Divider() {
   return <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.md }} />;
 }
 
+/* ── Stepper (מחוון שלבים ממוספר) ── */
+export function Stepper({ steps, current }: { steps: string[]; current: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
+      {steps.map((label, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <React.Fragment key={label}>
+            <View style={{ alignItems: 'center', width: 80 }}>
+              <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: done || active ? colors.brand700 : colors.brand50 }}>
+                {done ? (
+                  <Ionicons name="checkmark" size={18} color={colors.white} />
+                ) : (
+                  <Txt variant="small" weight="bold" color={active ? colors.white : colors.textMuted}>{i + 1}</Txt>
+                )}
+              </View>
+              <Txt variant="caption" weight={active ? 'bold' : 'regular'} color={active ? colors.brand700 : colors.textMuted} center style={{ marginTop: 4 }}>
+                {label}
+              </Txt>
+            </View>
+            {i < steps.length - 1 ? (
+              <View style={{ flex: 1, height: 2, backgroundColor: i < current ? colors.brand700 : colors.border, marginBottom: 18 }} />
+            ) : null}
+          </React.Fragment>
+        );
+      })}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',

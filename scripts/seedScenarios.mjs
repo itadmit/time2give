@@ -31,6 +31,7 @@ const rec1 = await login('demo-recipient1@time2give.dev');
 const rec2 = await login('demo-recipient2@time2give.dev');
 const rec3 = await login('demo-recipient3@time2give.dev');
 const coord = await login('demo-coordinator1@time2give.dev');
+const courier1Id = idByName['נהג 1'];
 const courier2Id = idByName['נהג 2'];
 const courier3Id = idByName['נהג 3'];
 console.log('🔑 מחוברים');
@@ -73,23 +74,38 @@ await rpc(donor2, 'commit_to_need', { p_need_id: n2, p_self_transport: false });
 console.log('✅ ממתין לשינוע — יו"ש');
 
 // ── בדרך R1 (נהג 3 באמצע משלוח) ──
-const n3 = await rpc(rec1, 'create_need', { p_region: R1, p_food_type: 'ערכות היגיינה', p_quantity: 18, p_unit_label: 'ערכות' });
+const n3 = await rpc(rec1, 'create_need', { p_region: R1, p_food_type: 'מנות קרב חמות', p_quantity: 18, p_unit_label: 'מנות' });
 const a3 = await rpc(donor1, 'commit_to_need', { p_need_id: n3, p_self_transport: false });
 await rpc(coord, 'assign_courier', { p_assignment_id: a3, p_courier_id: courier3Id });
 await rpc(coord, 'advance_assignment', { p_assignment_id: a3, p_new_status: 'picked_up' });
 await rpc(coord, 'advance_assignment', { p_assignment_id: a3, p_new_status: 'on_the_way' });
 console.log('✅ בדרך — נהג 3');
 
-// ── מחזור מלא R3 (נהג 2): נמסר→אושר→דורג ──
-const n4 = await rpc(rec3, 'create_need', { p_region: R3, p_food_type: 'ארוחות חמות', p_quantity: 60, p_unit_label: 'מנות' });
-const a4 = await rpc(donor3, 'commit_to_need', { p_need_id: n4, p_self_transport: false });
-await rpc(coord, 'assign_courier', { p_assignment_id: a4, p_courier_id: courier2Id });
-await rpc(coord, 'advance_assignment', { p_assignment_id: a4, p_new_status: 'picked_up' });
-await rpc(coord, 'advance_assignment', { p_assignment_id: a4, p_new_status: 'on_the_way' });
-await rpc(coord, 'advance_assignment', { p_assignment_id: a4, p_new_status: 'delivered' });
-await rpc(rec3, 'advance_assignment', { p_assignment_id: a4, p_new_status: 'confirmed' });
-await rpc(rec3, 'submit_rating', { p_assignment_id: a4, p_ratee_id: donor3.id, p_score: 5, p_comment: 'תודה רבה!' });
-console.log('✅ מחזור מלא — צפון');
+// ── מחזורים מלאים: נמסר→אושר→דורג (מייצרים אירועי "תרומה" בפיד + מונים) ──
+async function fullFlow(rec, donor, courierId, region, food, qty) {
+  const n = await rpc(rec, 'create_need', { p_region: region, p_food_type: food, p_quantity: qty, p_unit_label: 'מנות' });
+  const a = await rpc(donor, 'commit_to_need', { p_need_id: n, p_self_transport: false });
+  await rpc(coord, 'assign_courier', { p_assignment_id: a, p_courier_id: courierId });
+  await rpc(coord, 'advance_assignment', { p_assignment_id: a, p_new_status: 'picked_up' });
+  await rpc(coord, 'advance_assignment', { p_assignment_id: a, p_new_status: 'on_the_way' });
+  await rpc(coord, 'advance_assignment', { p_assignment_id: a, p_new_status: 'delivered' });
+  await rpc(rec, 'advance_assignment', { p_assignment_id: a, p_new_status: 'confirmed' });
+  await rpc(rec, 'submit_rating', { p_assignment_id: a, p_ratee_id: donor.id, p_score: 5, p_comment: 'תודה רבה!' });
+}
+await fullFlow(rec3, donor3, courier2Id, R3, 'ארוחות חמות', 60);   // צפון
+await fullFlow(rec1, donor1, courier1Id, R1, 'מנות קרב חמות', 45); // עוטף
+await fullFlow(rec2, donor2, courier2Id, R2, 'חבילות מזון', 30);   // יו"ש
+console.log('✅ 3 מחזורים הושלמו (פיד תרומות + מונים)');
+
+// ── אירועי קהילה נוספים לגיוון (הכרזות, לא תלויות שיבוץ) ──
+await admin.from('feed_events').insert([
+  { type: 'daily_summary', payload: { text: 'היום חולקו 135 מנות ב-6 תרומות לחיילים 🙏' } },
+  { type: 'badge', actor_id: donor1.id, payload: { text: 'תורם 1 קיבל את התג "תורם ראשון" 🏅' } },
+  { type: 'milestone', actor_id: courier2Id, payload: { text: 'נהג 2 השלים 10 משלוחים לחיילים 🚚' } },
+  { type: 'welcome', payload: { text: 'יחידה חדשה הצטרפה לקהילה — מוצב הצפון 🎖️' } },
+  { type: 'thanks', payload: { text: 'גדוד עוטף מודה לתורמים על הארוחות החמות 💚' } },
+]);
+console.log('✅ 5 אירועי קהילה נוספו');
 
 console.log(`
 🎉 מוכן. פלואו לבדיקה:

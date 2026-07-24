@@ -40,10 +40,10 @@ export const DEMO_USERS = [
   { phone: '+972502000001', email: 'demo-donor1@time2give.dev', full_name: 'תורם 1', roles: ['donor'], service_regions: [R1, R2] },
   { phone: '+972502000002', email: 'demo-donor2@time2give.dev', full_name: 'תורם 2', roles: ['donor'], service_regions: [R2, R3] },
   { phone: '+972502000003', email: 'demo-donor3@time2give.dev', full_name: 'תורם 3', roles: ['donor'], service_regions: [R3, R1] },
-  // רספים/מקבלים — כל אחד באזור אחד
-  { phone: '+972503000001', email: 'demo-recipient1@time2give.dev', full_name: 'רספ 1', roles: ['recipient'], recipient_type: 'family', region: R1, display_name: 'משפחה — עוטף' },
-  { phone: '+972503000002', email: 'demo-recipient2@time2give.dev', full_name: 'רספ 2', roles: ['recipient'], recipient_type: 'evacuee', region: R2, display_name: 'מפונים — יו"ש' },
-  { phone: '+972503000003', email: 'demo-recipient3@time2give.dev', full_name: 'רספ 3', roles: ['recipient'], recipient_type: 'elderly', region: R3, display_name: 'קשישים — צפון' },
+  // רספים/מקבלים — יחידות צבאיות, כל אחת באזור אחד
+  { phone: '+972503000001', email: 'demo-recipient1@time2give.dev', full_name: 'רספ 1', roles: ['recipient'], recipient_type: 'military_unit', region: R1, display_name: 'גדוד — עוטף' },
+  { phone: '+972503000002', email: 'demo-recipient2@time2give.dev', full_name: 'רספ 2', roles: ['recipient'], recipient_type: 'military_unit', region: R2, display_name: 'פלוגה — יו"ש' },
+  { phone: '+972503000003', email: 'demo-recipient3@time2give.dev', full_name: 'רספ 3', roles: ['recipient'], recipient_type: 'military_unit', region: R3, display_name: 'מוצב — צפון' },
   // רכז אחד בלבד — מכסה את כל האזורים
   { phone: '+972504000001', email: 'demo-coordinator1@time2give.dev', full_name: 'רכז 1', roles: ['coordinator'], service_regions: [R1, R2, R3] },
   // סופר-אדמין נסתר (המספר של הבעלים) — לא מוצג ברשימה

@@ -14,7 +14,7 @@
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0,
-      "url": "https://u.expo.dev/PROJECT_ID_PLACEHOLDER"
+      "url": "https://u.expo.dev/03647ef1-c3b4-4f9b-ad18-36a152cb7476"
     },
     "ios": {
       "supportsTablet": true,

@@ -42,12 +42,35 @@ const EVENT_LABEL: Record<string, string> = {
 
 const ROLE_LABEL: Record<string, string> = { donor: 'תורם', courier: 'משנע', recipient: 'מקבל' };
 
-const NEXT: Partial<Record<AssignmentStatus, { status: AssignmentStatus; label: string; icon: string }>> = {
-  committed: { status: 'picked_up', label: 'אספתי - יצאתי לדרך', icon: 'cube' },
-  courier_assigned: { status: 'picked_up', label: 'אספתי מהתורם', icon: 'cube' },
-  picked_up: { status: 'on_the_way', label: 'יצאתי לדרך', icon: 'navigate' },
-  on_the_way: { status: 'delivered', label: 'מסרתי את התרומה', icon: 'checkmark-done' },
-  delivered: { status: 'confirmed', label: 'אשר קבלת התרומה', icon: 'shield-checkmark' },
+type NextAction = {
+  status: AssignmentStatus;
+  label: string;
+  icon: string;
+  hint: string;
+  confirm?: { title: string; message: string };
+};
+const NEXT: Partial<Record<AssignmentStatus, NextAction>> = {
+  committed: {
+    status: 'picked_up', label: 'אספתי את המזון – יוצא לדרך', icon: 'cube',
+    hint: 'לחצו כשאספתם את המזון ואתם בדרך למקבל.',
+  },
+  courier_assigned: {
+    status: 'picked_up', label: 'כן, אני לוקח את המשלוח', icon: 'checkmark-circle',
+    hint: 'אתם מתחייבים לאסוף מהתורם ולמסור ליחידה. את הכתובת המדויקת תקבלו בטלפון.',
+    confirm: { title: 'לקחת את המשלוח?', message: 'אתם מאשרים שתאספו את המזון מהתורם ותמסרו אותו לכתובת המקבל?' },
+  },
+  picked_up: {
+    status: 'on_the_way', label: 'יצאתי לדרך למסירה', icon: 'navigate',
+    hint: 'לחצו כשאתם בדרך לכתובת המסירה.',
+  },
+  on_the_way: {
+    status: 'delivered', label: 'מסרתי את המזון ליעד', icon: 'checkmark-done',
+    hint: 'לחצו כשהמזון נמסר ליחידה.',
+  },
+  delivered: {
+    status: 'confirmed', label: 'כן, קיבלנו את המזון', icon: 'shield-checkmark',
+    hint: 'אישור קבלה על ידי המקבל.',
+  },
 };
 
 export default function AssignmentDetail() {
@@ -81,6 +104,17 @@ export default function AssignmentDetail() {
     const { error } = await advanceAssignment(id!, status);
     if (error) return Alert.alert('שגיאה', error.message);
     await load();
+  };
+
+  const onNext = (action: NextAction) => {
+    if (action.confirm) {
+      Alert.alert(action.confirm.title, action.confirm.message, [
+        { text: 'לא עכשיו', style: 'cancel' },
+        { text: 'כן, בטוח', onPress: () => advance(action.status) },
+      ]);
+    } else {
+      advance(action.status);
+    }
   };
 
   const rate = () => {
@@ -141,7 +175,14 @@ export default function AssignmentDetail() {
             </Txt>
           </Card>
         ) : null}
-        {next ? <Button title={next.label} icon={next.icon as any} onPress={() => advance(next.status)} /> : null}
+        {next ? (
+          <>
+            <Button title={next.label} icon={next.icon as any} onPress={() => onNext(next)} />
+            <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: 6 }}>
+              {next.hint}
+            </Txt>
+          </>
+        ) : null}
         {a.status === 'confirmed' ? <Button title="דרג את הצד השני" icon="star" onPress={rate} /> : null}
 
         {/* Reveal phone */}
