@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { NotificationsProvider } from '../src/context/NotificationsContext';
 import { LocationPrompt } from '../src/components/LocationPrompt';
 import { RoleWizard } from '../src/components/RoleWizard';
+import { UpdateReadyBanner } from '../src/components/UpdateReadyBanner';
 import { useOTAUpdates } from '../src/lib/useOTAUpdates';
 import { colors } from '../src/theme/tokens';
 
@@ -166,6 +167,7 @@ export default function RootLayout() {
             <AuthGate />
           </NotificationsProvider>
         </AuthProvider>
+        <UpdateReadyBanner />
       </View>
     </SafeAreaProvider>
   );
