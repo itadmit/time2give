@@ -1,51 +1,111 @@
-import React, { useState } from 'react';
-import { View, Alert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Screen, Txt, Field, Button, Header } from '../../src/components/ui';
+import React, { useRef, useState } from 'react';
+import { View, Alert, TextInput, Pressable, StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { Screen, Txt, Button, Header } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
-import { colors, spacing } from '../../src/theme/tokens';
+import { colors, spacing, radius } from '../../src/theme/tokens';
+
+const CODE_LENGTH = 6;
 
 export default function OtpScreen() {
   const { phone } = useLocalSearchParams<{ phone: string }>();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const { verifyOtp } = useAuth();
-  const router = useRouter();
+  const inputRef = useRef<TextInput>(null);
 
-  const submit = async () => {
-    if (code.replace(/\D/g, '').length < 4) {
-      Alert.alert('קוד קצר מדי', 'הזן את הקוד שקיבלת ב-SMS');
-      return;
-    }
+  const doVerify = async (value: string) => {
+    if (loading) return;
     setLoading(true);
-    const { error } = await verifyOtp(phone!, code.trim());
+    const { error } = await verifyOtp(phone!, value);
     setLoading(false);
     if (error) {
+      setCode('');
       Alert.alert('קוד שגוי', error);
+      inputRef.current?.focus();
       return;
     }
     // AuthGate ינווט אוטומטית ל-onboarding / feed
   };
 
+  const onChange = (t: string) => {
+    const digits = t.replace(/\D/g, '').slice(0, CODE_LENGTH);
+    setCode(digits);
+    // כשמגיעים לספרה האחרונה — שולחים אוטומטית
+    if (digits.length === CODE_LENGTH) doVerify(digits);
+  };
+
   return (
     <>
       <Header title="אימות קוד" onBack={() => safeBack()} />
-      <Screen scroll>
-        <Txt variant="body" color={colors.textMuted} style={{ marginTop: spacing.xl, marginBottom: spacing.lg }}>
-          שלחנו קוד חד-פעמי אל {phone}
+      <Screen>
+        <Txt variant="body" color={colors.textMuted} center style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
+          שלחנו קוד חד-פעמי בן {CODE_LENGTH} ספרות אל{'\n'}
+          <Txt weight="bold" color={colors.text}>{phone}</Txt>
         </Txt>
-        <Field
-          label="קוד האימות"
+
+        {/* תיבות ספרה-לספרה. TextInput שקוף מעליהן תופס את ההקלדה ואת מילוי-האוטומטי מ-SMS. */}
+        <Pressable onPress={() => inputRef.current?.focus()} style={styles.boxesRow}>
+          {Array.from({ length: CODE_LENGTH }).map((_, i) => {
+            const char = code[i] ?? '';
+            const active = i === code.length;
+            return (
+              <View key={i} style={[styles.box, char ? styles.boxFilled : null, active ? styles.boxActive : null]}>
+                <Txt variant="h1" weight="extrabold" color={colors.brand700}>{char}</Txt>
+              </View>
+            );
+          })}
+        </Pressable>
+
+        <TextInput
+          ref={inputRef}
           value={code}
-          onChangeText={setCode}
+          onChangeText={onChange}
           keyboardType="number-pad"
-          placeholder="______"
+          maxLength={CODE_LENGTH}
           autoFocus
-          maxLength={6}
+          textContentType="oneTimeCode"
+          autoComplete="sms-otp"
+          caretHidden
+          style={styles.hiddenInput}
         />
-        <Button title="אימות והמשך" onPress={submit} loading={loading} />
+
+        <Button
+          title="אימות והמשך"
+          onPress={() => (code.length === CODE_LENGTH ? doVerify(code) : Alert.alert('קוד קצר מדי', `הזן ${CODE_LENGTH} ספרות`))}
+          loading={loading}
+          style={{ marginTop: spacing.xxl }}
+        />
       </Screen>
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  // direction ltr — הספרה הראשונה משמאל, כמו שמצפים בקוד מספרי (גם ב-RTL)
+  boxesRow: {
+    flexDirection: 'row',
+    direction: 'ltr',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  box: {
+    width: 48,
+    height: 58,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxFilled: { borderColor: colors.brand500, backgroundColor: colors.brand50 },
+  boxActive: { borderColor: colors.brand700 },
+  hiddenInput: {
+    position: 'absolute',
+    opacity: 0,
+    width: 1,
+    height: 1,
+  },
+});
