@@ -256,5 +256,5 @@ export default function Profile() {
 const styles = {
   avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.brand50, alignItems: 'center' as const, justifyContent: 'center' as const },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
-  editBtn: { position: 'absolute' as const, top: spacing.md, left: spacing.md, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand50, alignItems: 'center' as const, justifyContent: 'center' as const },
+  editBtn: { position: 'absolute' as const, top: spacing.md, right: spacing.md, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand50, alignItems: 'center' as const, justifyContent: 'center' as const },
 };
