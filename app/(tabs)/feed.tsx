@@ -533,7 +533,8 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   detailClose: {
-    position: 'absolute', top: spacing.md, left: spacing.md,
+    // RTL מחליף left↔right, לכן 'right' כאן = צד שמאל הפיזי של הבוקס (איפה שהמשתמש ביקש)
+    position: 'absolute', top: spacing.md, right: spacing.md,
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center', zIndex: 1,
