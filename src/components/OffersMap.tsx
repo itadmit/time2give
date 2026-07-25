@@ -11,7 +11,12 @@ export type MapOffer = {
   unit_label: string;
   origin_lat: number | null;
   origin_lng: number | null;
+  /** תרומה שצריכה שינוע — מסומנת בסמן כתום */
+  needsTransport?: boolean;
 };
+
+// כתום = "צריך שינוע"
+const TRANSPORT_PIN = '#F59E0B';
 
 // מרכז ישראל - נקודת פתיחה עד שמאתרים את המיקום של המשתמש
 const INITIAL = { latitude: 31.5, longitude: 34.9, latitudeDelta: 3.2, longitudeDelta: 2.2 };
@@ -84,7 +89,7 @@ export function OffersMap({ offers, onSelect, variant = 'card', mapType = 'stand
           coordinate={{ latitude: o.origin_lat as number, longitude: o.origin_lng as number }}
           title={`${o.quantity} ${o.unit_label}`}
           description={o.food_type}
-          pinColor={pinColor}
+          pinColor={o.needsTransport ? TRANSPORT_PIN : pinColor}
           onPress={() => onSelect?.(o.id)}
           onCalloutPress={() => onSelect?.(o.id)}
         />

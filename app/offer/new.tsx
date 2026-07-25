@@ -49,7 +49,8 @@ export default function NewOffer() {
   const [regions, setRegions] = useState<Region[]>(profile?.service_regions ?? []);
   const [kosher, setKosher] = useState(false);
   const [veg, setVeg] = useState(false);
-  const [selfCourier, setSelfCourier] = useState(false);
+  // null = טרם ענו · true = התורם מוביל בעצמו · false = צריך נהג מתנדב
+  const [selfCourier, setSelfCourier] = useState<boolean | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -72,7 +73,10 @@ export default function NewOffer() {
     const qty = parseInt(quantity, 10);
     if (!foodType.trim()) return Alert.alert('מה תורמים?', 'בחרו או כתבו סוג מזון');
     if (!qty || qty <= 0) return Alert.alert('כמה?', 'מלאו כמות (מספר גדול מ-0)');
-    if (regions.length === 0) return Alert.alert('בחרו אזורים', 'לאילו אזורים אפשר להגיע?');
+    if (selfCourier === null) return Alert.alert('שינוע', 'בחרו אם תוכלו לשנע את התרומה בעצמכם');
+    if (regions.length === 0) {
+      return Alert.alert('בחרו אזור', selfCourier ? 'לאילו אזורים תוכלו להגיע?' : 'באיזה אזור נמצאת התרומה?');
+    }
 
     setLoading(true);
     const { error } = await publishOffer({
@@ -116,16 +120,38 @@ export default function NewOffer() {
         <Section num={3} title="מאיפה אוספים?" hint="הכי קל: לחצו על הכפתור והמיקום יימלא לבד." />
         <Button title={coords ? 'המיקום שלי נשמר ✓' : 'השתמש במיקום שלי'} variant="secondary" icon="location" onPress={useMyLocation} style={{ marginBottom: spacing.md }} />
         <Field label="עיר מוצא (לא חובה)" value={city} onChangeText={setCity} placeholder="לדוגמה: אשקלון" />
-        <Txt variant="small" weight="medium" color={colors.textMuted} style={{ marginTop: spacing.md, marginBottom: 8 }}>
-          לאילו אזורים אפשר להגיע?
-        </Txt>
-        <RegionPicker value={regions} onChange={setRegions} />
 
-        <Section num={4} title="עוד פרטים (לא חובה)" />
+        <Section num={4} title="שינוע" hint="האם תוכלו לשנע את התרומה בעצמכם?" />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Button title="כן, אביא בעצמי" icon="car" variant={selfCourier === true ? 'primary' : 'secondary'} onPress={() => setSelfCourier(true)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button title="לא, צריך שינוע" icon="cube" variant={selfCourier === false ? 'primary' : 'secondary'} onPress={() => setSelfCourier(false)} />
+          </View>
+        </View>
+        {selfCourier === false ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FBF0DA', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md }}>
+            <Ionicons name="information-circle" size={18} color={colors.warning} />
+            <Txt variant="caption" color={colors.textMuted} style={{ flex: 1 }}>
+              התרומה תופיע במפה עם סימון "צריך שינוע", ונהגים מתנדבים באזור יקבלו התראה 🚗
+            </Txt>
+          </View>
+        ) : null}
+
+        {selfCourier !== null ? (
+          <>
+            <Txt variant="small" weight="medium" color={colors.textMuted} style={{ marginTop: spacing.lg, marginBottom: 8 }}>
+              {selfCourier ? 'לאילו אזורים תוכלו להגיע?' : 'באיזה אזור נמצאת התרומה?'}
+            </Txt>
+            <RegionPicker value={regions} onChange={setRegions} single={!selfCourier} />
+          </>
+        ) : null}
+
+        <Section num={5} title="עוד פרטים (לא חובה)" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
           <Toggle label="כשר" value={kosher} onToggle={() => setKosher(!kosher)} />
           <Toggle label="צמחוני" value={veg} onToggle={() => setVeg(!veg)} />
-          <Toggle label="אני מוביל בעצמי" value={selfCourier} onToggle={() => setSelfCourier(!selfCourier)} />
         </View>
         <Field label="הערות" value={notes} onChangeText={setNotes} multiline placeholder="לדוגמה: מוכן לאיסוף מ-14:00" />
 

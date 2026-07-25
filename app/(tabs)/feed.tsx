@@ -31,6 +31,7 @@ type OfferRow = {
   donor_name: string;
   donor_level: ReputationLevel;
   donor_rating: number;
+  donor_is_courier: boolean;
 };
 type NeedRow = {
   id: string;
@@ -138,7 +139,7 @@ export default function Feed() {
     }
     const { data: off } = await supabase
       .from('open_offers_v')
-      .select('id,food_type,quantity,unit_label,kosher,vegetarian,notes,origin_city,origin_lat,origin_lng,donor_name,donor_level,donor_rating');
+      .select('id,food_type,quantity,unit_label,kosher,vegetarian,notes,origin_city,origin_lat,origin_lng,donor_name,donor_level,donor_rating,donor_is_courier');
     setOffers((off as OfferRow[]) ?? []);
     const { data: nd } = await supabase
       .from('open_needs_v')
@@ -178,7 +179,7 @@ export default function Feed() {
       origin_lng: c ? c.lng + off : null,
     };
   });
-  const offerMarkers: MapOffer[] = offers;
+  const offerMarkers: MapOffer[] = offers.map((o) => ({ ...o, needsTransport: !o.donor_is_courier }));
   const markers = showNeeds ? needMarkers : offerMarkers;
 
   const selectedOffer = !showNeeds ? offers.find((o) => o.id === selectedId) ?? null : null;
@@ -395,13 +396,21 @@ export default function Feed() {
                 </View>
               </View>
 
-              {(selectedOffer.kosher || selectedOffer.vegetarian || selectedOffer.notes) ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
-                  {selectedOffer.kosher ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>כשר</Txt></View> : null}
-                  {selectedOffer.vegetarian ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>צמחוני</Txt></View> : null}
-                  {selectedOffer.notes ? <Txt variant="caption" color={colors.textMuted} style={{ flex: 1 }} numberOfLines={2}>{selectedOffer.notes}</Txt> : null}
-                </View>
-              ) : null}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: spacing.md }}>
+                {/* סימון שינוע */}
+                {selectedOffer.donor_is_courier ? (
+                  <View style={[styles.tag, { backgroundColor: '#E7F6EE' }]}>
+                    <Txt variant="caption" weight="bold" color={colors.secondary}>התורם מביא · איסוף מוכן</Txt>
+                  </View>
+                ) : (
+                  <View style={[styles.tag, { backgroundColor: '#FBF0DA' }]}>
+                    <Txt variant="caption" weight="bold" color={colors.warning}>🚗 צריך שינוע</Txt>
+                  </View>
+                )}
+                {selectedOffer.kosher ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>כשר</Txt></View> : null}
+                {selectedOffer.vegetarian ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>צמחוני</Txt></View> : null}
+                {selectedOffer.notes ? <Txt variant="caption" color={colors.textMuted} style={{ flex: 1 }} numberOfLines={2}>{selectedOffer.notes}</Txt> : null}
+              </View>
 
               {isGuest ? (
                 <Button title="התחבר" variant="secondary" icon="log-in" onPress={() => router.push('/(auth)/phone')} style={{ marginTop: spacing.lg }} />
