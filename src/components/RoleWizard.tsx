@@ -1,113 +1,119 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Pressable } from 'react-native';
+import { Modal, View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt, Button } from './ui';
-import { colors, spacing, radius } from '../theme/tokens';
+import { colors, spacing, radius, shadow } from '../theme/tokens';
 
-const SEEN_KEY = 'role_wizard_seen_v1';
 export const PENDING_ROLE_KEY = 'pending_role';
 
-type Cube = {
-  role: 'donor' | 'recipient' | 'courier';
+type Role = 'donor' | 'recipient' | 'courier';
+type RoleCard = {
+  role: Role;
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   desc: string;
-  disabled?: boolean;
+  accent: string;
 };
 
-const CUBES: Cube[] = [
-  { role: 'donor', icon: 'gift', title: 'תורם', desc: 'מכין ומספק מזון' },
-  { role: 'recipient', icon: 'shield-checkmark', title: 'מבקש', desc: 'מבקש או מאשר תרומות' },
-  { role: 'courier', icon: 'car', title: 'נהג מתנדב', desc: 'מוביל תרומות למבקשים' },
+const ROLE_CARDS: RoleCard[] = [
+  { role: 'donor', icon: 'gift', title: 'תורם', desc: 'יש לי מזון לתרום', accent: colors.brand700 },
+  { role: 'recipient', icon: 'heart', title: 'מבקש', desc: 'אני צריך תרומה', accent: colors.secondary },
+  { role: 'courier', icon: 'car', title: 'נהג מתנדב', desc: 'אני מוביל תרומות', accent: colors.warning },
+];
+
+const STEPS = [
+  { icon: 'person-circle' as const, text: 'בוחרים תפקיד' },
+  { icon: 'sparkles' as const, text: 'מפרסמים או מוצאים תרומה' },
+  { icon: 'call' as const, text: 'מתחברים בטלפון ומסיימים' },
 ];
 
 /**
- * ויזארד פתיחה ראשונה: המשתמש רואה את סוגי המשתמשים (קוביות), ויכול לבחור תפקיד
- * להרשמה או ללחוץ "לא כעת" ולגלוש כאורח. חייל יכול לצפות חופשי או להירשם.
- * enabled — true רק לאורח (בלי session), כדי לא להקפיץ למי שכבר מחובר.
+ * ויזארד כניסה: קופץ לאורח (בלי session) בכל פתיחה עד שנרשם. שני מסכים —
+ * ברוכים הבאים (הסבר קצר) ואז בחירת תפקיד. פשוט וברור גם למשתמש מבוגר.
+ * enabled — true רק לאורח, כדי לא להקפיץ למי שכבר מחובר.
  */
 export function RoleWizard({ enabled }: { enabled: boolean }) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
-  const [step, setStep] = useState<'menu' | 'soldier'>('menu');
+  const [step, setStep] = useState<'welcome' | 'menu'>('welcome');
 
+  // קופץ בכל כניסה כשהמשתמש אורח (לא מחובר). נסגר לאותה הפעלה בלבד.
   useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    (async () => {
-      const seen = await AsyncStorage.getItem(SEEN_KEY);
-      if (!seen && !cancelled) setVisible(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    if (enabled) {
+      setStep('welcome');
+      setVisible(true);
+    } else {
+      setVisible(false);
+    }
   }, [enabled]);
 
-  const markSeen = () => AsyncStorage.setItem(SEEN_KEY, '1');
+  const dismiss = () => setVisible(false);
 
-  const dismiss = async () => {
-    await markSeen();
-    setVisible(false);
-  };
-
-  const register = async (role: Cube['role']) => {
+  const register = async (role: Role) => {
     await AsyncStorage.setItem(PENDING_ROLE_KEY, role);
-    await markSeen();
     setVisible(false);
     router.push('/(auth)/phone');
-  };
-
-  const onCube = (c: Cube) => {
-    if (c.disabled) return;
-    if (c.role === 'recipient') setStep('soldier');
-    else register(c.role);
   };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          {step === 'menu' ? (
+          {step === 'welcome' ? (
             <>
-              <Txt variant="h2" weight="extrabold" center style={{ marginBottom: 4 }}>
-                ברוכים הבאים ל-Time2Give
+              <View style={styles.hero}>
+                <Ionicons name="heart-circle" size={44} color={colors.white} />
+              </View>
+              <Txt variant="h1" weight="extrabold" center style={{ marginTop: spacing.md, marginBottom: 4 }}>
+                ברוכים הבאים ל‑Time2Give
               </Txt>
-              <Txt variant="caption" color={colors.textMuted} center style={{ marginBottom: spacing.lg }}>
-                אפשר לגלוש חופשי. כדי לבצע פעולה — בחר תפקיד:
+              <Txt variant="body" color={colors.textMuted} center style={{ marginBottom: spacing.lg }}>
+                מחברים בין מי שרוצה לתרום מזון לבין מי שצריך — בפשטות ובבטחה.
               </Txt>
-              <View style={styles.grid}>
-                {CUBES.map((c) => (
-                  <Pressable key={c.role} onPress={() => onCube(c)} disabled={c.disabled} style={[styles.cube, c.disabled && styles.cubeDisabled]}>
-                    <View style={[styles.cubeIcon, { backgroundColor: c.disabled ? colors.border : colors.brand50 }]}>
-                      <Ionicons name={c.disabled ? 'lock-closed' : c.icon} size={26} color={c.disabled ? colors.textMuted : colors.brand700} />
+
+              <View style={styles.steps}>
+                {STEPS.map((s, i) => (
+                  <View key={i} style={styles.stepRow}>
+                    <View style={styles.stepNum}>
+                      <Txt weight="extrabold" color={colors.white} variant="small">{i + 1}</Txt>
                     </View>
-                    <Txt weight="bold" center style={{ marginTop: 8 }} color={c.disabled ? colors.textMuted : colors.text}>
-                      {c.title}
-                    </Txt>
-                    <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: 2 }}>
-                      {c.desc}
-                    </Txt>
-                  </Pressable>
+                    <Ionicons name={s.icon} size={20} color={colors.brand700} />
+                    <Txt weight="medium" style={{ flex: 1 }}>{s.text}</Txt>
+                  </View>
                 ))}
               </View>
-              <Button title="לא כעת" variant="ghost" onPress={dismiss} style={{ marginTop: spacing.lg }} />
+
+              <Button title="בואו נתחיל" icon="arrow-back" onPress={() => setStep('menu')} style={{ marginTop: spacing.lg }} />
+              <Button title="אגלוש בינתיים" variant="ghost" onPress={dismiss} style={{ marginTop: spacing.sm }} />
             </>
           ) : (
             <>
-              <View style={styles.cubeIcon}>
-                <Ionicons name="shield-checkmark" size={30} color={colors.brand700} />
-              </View>
-              <Txt variant="h2" weight="extrabold" center style={{ marginTop: spacing.sm, marginBottom: 4 }}>
-                חייל
+              <Txt variant="h1" weight="extrabold" center style={{ marginBottom: 4 }}>
+                מה תרצו לעשות?
               </Txt>
               <Txt variant="caption" color={colors.textMuted} center style={{ marginBottom: spacing.lg }}>
-                אפשר לצפות בתרומות בלי הרשמה. הרשמה נדרשת רק כדי לבקש תרומה או לאשר תרומה שהוצעה.
+                בחרו את התפקיד שלכם כדי להתחיל
               </Txt>
-              <Button title="צפייה חופשית" icon="eye" onPress={dismiss} style={{ marginBottom: 10 }} />
-              <Button title="הרשמה (לבקשה/אישור)" variant="secondary" icon="person-add" onPress={() => register('recipient')} />
-              <Button title="חזרה" variant="ghost" onPress={() => setStep('menu')} style={{ marginTop: 8 }} />
+
+              <View style={{ gap: 10 }}>
+                {ROLE_CARDS.map((c) => (
+                  <Pressable key={c.role} onPress={() => register(c.role)} style={styles.roleCard}>
+                    <View style={[styles.roleIcon, { backgroundColor: c.accent }]}>
+                      <Ionicons name={c.icon} size={24} color={colors.white} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Txt weight="bold" variant="h2">{c.title}</Txt>
+                      <Txt variant="caption" color={colors.textMuted}>{c.desc}</Txt>
+                    </View>
+                    <Ionicons name="chevron-back" size={22} color={colors.textMuted} />
+                  </Pressable>
+                ))}
+              </View>
+
+              <Button title="חזרה" variant="ghost" icon="arrow-forward" onPress={() => setStep('welcome')} style={{ marginTop: spacing.lg }} />
+              <Button title="אגלוש בינתיים" variant="ghost" onPress={dismiss} style={{ marginTop: 2 }} />
             </>
           )}
         </View>
@@ -116,44 +122,60 @@ export function RoleWizard({ enabled }: { enabled: boolean }) {
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    backgroundColor: 'rgba(11,31,51,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: spacing.xl,
   },
   sheet: {
-    width: '100%' as const,
+    width: '100%',
     backgroundColor: colors.white,
-    borderRadius: radius.lg,
+    borderRadius: 28,
     padding: spacing.xl,
+    ...shadow.card,
   },
-  grid: {
-    flexDirection: 'row' as const,
-    flexWrap: 'wrap' as const,
-    gap: 10,
-    justifyContent: 'space-between' as const,
+  hero: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.brand700,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
-  cube: {
-    width: '47%' as const,
+  steps: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepNum: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.brand700,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center' as const,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
-  cubeDisabled: { opacity: 0.7 },
-  cubeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.brand50,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    alignSelf: 'center' as const,
+  roleIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-};
+});
