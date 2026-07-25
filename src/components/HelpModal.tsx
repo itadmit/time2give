@@ -1,5 +1,5 @@
-import React from 'react';
-import { Modal, View, Pressable, ScrollView } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, View, Pressable, ScrollView, Animated, Easing, Dimensions, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from './ui';
@@ -8,28 +8,27 @@ import { ROLE_LABELS, type UserRole } from '../lib/domain';
 
 type HelpItem = { icon: keyof typeof Ionicons.glyphMap; title: string; body: string };
 
-/** תוכן עזרה מותאם לכל סוג משתמש */
+/** תוכן עזרה מותאם לכל סוג משתמש — קצר וברור, לפי הזרימה הפשוטה. */
 const HELP: Record<UserRole, HelpItem[]> = {
   donor: [
-    { icon: 'gift', title: 'פרסום תרומה מוכנה', body: 'לחצו על "פרסם תרומה מוכנה" כדי להציע מזון או מוצרים. הוסיפו כמות, תיאור ונקודת איסוף.' },
-    { icon: 'megaphone', title: 'בקשות פתוחות באזורכם', body: 'עברו על בקשות של מקבלים מורשים בקרבתכם והתאימו תרומה שמתאימה לכם.' },
-    { icon: 'car', title: 'שינוע ומסירה', body: 'אם נדרש שינוע, נהג מתנדב לוקח את המשלוח ומתאם איתכם איסוף. תקבלו עדכון בכל שלב.' },
-    { icon: 'ribbon', title: 'מוניטין', body: 'כל תרומה שהושלמה מעלה את רמת המוניטין שלכם בקהילה.' },
+    { icon: 'gift', title: 'פרסמו תרומה', body: 'לחצו "פרסם תרומה", בחרו מה יש לכם, כמות ומאיפה אוספים — הכל במסך אחד.' },
+    { icon: 'megaphone', title: 'או ענו לבקשה', body: 'עברו על הבקשות במפה והתחייבו לבקשה שמתאימה לכם.' },
+    { icon: 'call', title: 'מתחברים בטלפון', body: 'לאחר התאמה מקבלים את הטלפון של הצד השני ומתאמים איסוף ומסירה.' },
   ],
   recipient: [
-    { icon: 'megaphone', title: 'פרסום בקשה', body: 'לחצו "פרסם בקשת תרומה חדשה" ופרטו מה חסר, כמות ואזור. הבקשה תוצג לתורמים.' },
-    { icon: 'shield-checkmark', title: 'מקבל מורשה', body: 'כמקבל מאומת, הבקשות שלכם מקבלות עדיפות ואמון גבוה יותר בקהילה.' },
-    { icon: 'notifications', title: 'התאמות', body: 'כשתורם מתאים את הבקשה שלכם, תקבלו התראה ותוכלו לעקוב עד המסירה.' },
-  ],
-  coordinator: [
-    { icon: 'git-network', title: 'תיאום שינוע', body: 'צפו בתרומות הממתינות לשינוע ושבצו משנעים מתנדבים לכל מסירה.' },
-    { icon: 'people', title: 'החוליה המקשרת', body: 'אתם מחברים בין תורם, משנע ומקבל - ודאו שכל מסירה מגיעה ליעד.' },
-    { icon: 'time', title: 'מעקב סטטוס', body: 'עקבו אחר מצב כל שינוע בזמן אמת דרך מסך הפעילות.' },
+    { icon: 'heart', title: 'בקשו תרומה', body: 'לחצו "בקש תרומה", כתבו מה חסר, כמה ובאיזה אזור — הבקשה תוצג לתורמים.' },
+    { icon: 'map', title: 'או בחרו מהמפה', body: 'עברו על התרומות הזמינות במפה ובחרו את מה שמתאים לכם.' },
+    { icon: 'checkmark-done', title: 'אשרו קבלה', body: 'כשהמזון מגיע — אשרו קבלה באפליקציה. זהו, סיימתם.' },
   ],
   courier: [
-    { icon: 'car', title: 'משלוחים פתוחים', body: 'במסך "הפעילות שלי" תראו משלוחים פתוחים לאיסוף באזורכם. לחצו "אני לוקח את המשלוח" כדי לקחת אחד.' },
-    { icon: 'call', title: 'תיאום בטלפון', body: 'אחרי שלקחתם משלוח, הציגו את פרטי הקשר ותאמו איסוף עם התורם ומסירה למבקש.' },
-    { icon: 'checkmark-done', title: 'אישור מסירה', body: 'עדכנו "אספתי" → "בדרך" → "מסרתי". המבקש יאשר קבלה בסוף.' },
+    { icon: 'car', title: 'משלוחים פתוחים', body: 'ב"הפעילות שלי" מופיעים משלוחים פתוחים באזורכם. לחצו "אני לוקח את המשלוח".' },
+    { icon: 'call', title: 'תיאום בטלפון', body: 'הציגו את פרטי הקשר, אספו מהתורם ומסרו למבקש.' },
+    { icon: 'checkmark-done', title: 'עדכנו סטטוס', body: '"אספתי" ← "בדרך" ← "מסרתי". המבקש יאשר קבלה בסוף.' },
+  ],
+  coordinator: [
+    { icon: 'car', title: 'משלוחים פתוחים', body: 'ב"הפעילות שלי" מופיעים משלוחים פתוחים באזורכם. לחצו "אני לוקח את המשלוח".' },
+    { icon: 'call', title: 'תיאום בטלפון', body: 'הציגו את פרטי הקשר, אספו מהתורם ומסרו למבקש.' },
+    { icon: 'checkmark-done', title: 'עדכנו סטטוס', body: '"אספתי" ← "בדרך" ← "מסרתי". המבקש יאשר קבלה בסוף.' },
   ],
   org_member: [
     { icon: 'business', title: 'ניהול עמותה', body: 'נהלו את הבקשות והתרומות של העמותה במקום אחד.' },
@@ -37,35 +36,65 @@ const HELP: Record<UserRole, HelpItem[]> = {
   ],
   admin: [
     { icon: 'shield', title: 'ניהול מערכת', body: 'גישה ללוח הבקרה, אישור משתמשים וניהול תוכן המערכת.' },
-    { icon: 'people', title: 'ניהול משתמשים', body: 'אשרו מקבלים מורשים ונהלו תפקידים.' },
+    { icon: 'people', title: 'ניהול משתמשים', body: 'אשרו מקבלים ונהלו תפקידים.' },
   ],
 };
 
-/** עזרה כללית כשאין תפקיד */
+/** עזרה כללית כשאין תפקיד (אורח) */
 const GENERAL: HelpItem[] = [
-  { icon: 'heart-circle', title: 'ברוכים הבאים ל-Time2Give', body: 'הפלטפורמה מחברת בין תורמים, מקבלים ומתנדבים לשינוע - בבטחה.' },
-  { icon: 'person-circle', title: 'בחירת תפקיד', body: 'עדכנו את הפרופיל שלכם כדי לקבל עזרה מותאמת לתפקידכם.' },
+  { icon: 'heart-circle', title: 'ברוכים הבאים ל‑Time2Give', body: 'מחברים בין מי שרוצה לתרום מזון לבין מי שצריך — בפשטות ובבטחה.' },
+  { icon: 'person-circle', title: 'בוחרים תפקיד', body: 'תורם, מבקש או נהג מתנדב. בוחרים פעם אחת ומתחילים.' },
+  { icon: 'call', title: 'מתחברים בטלפון', body: 'אחרי התאמה מתאמים ישירות בטלפון — בלי מתווכים.' },
 ];
+
+const SCREEN_H = Dimensions.get('window').height;
 
 export function HelpModal({ visible, onClose, role }: { visible: boolean; onClose: () => void; role?: UserRole }) {
   const items = (role && HELP[role]) || GENERAL;
-  const roleLabel = role ? ROLE_LABELS[role] : 'עזרה כללית';
+  const roleLabel = role ? ROLE_LABELS[role] : 'איך זה עובד';
+
+  // אנימציית כניסה: רקע דוהה פנימה (opacity) + גיליון עולה מלמטה (translateY).
+  const [mounted, setMounted] = useState(visible);
+  const anim = useRef(new Animated.Value(0)).current; // 0 = סגור, 1 = פתוח
+
+  useEffect(() => {
+    if (visible) {
+      setMounted(true);
+      Animated.timing(anim, { toValue: 1, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    } else if (mounted) {
+      Animated.timing(anim, { toValue: 0, duration: 180, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
+    }
+  }, [visible]);
+
+  const backdropOpacity = anim; // 0 → 1
+  const sheetTranslate = anim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_H * 0.35, 0] });
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.45)' }} onPress={onClose}>
-        <View style={{ flex: 1 }} />
-        <Pressable
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <View style={{ flex: 1 }}>
+        {/* רקע כהה שדוהה פנימה */}
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,31,51,0.5)', opacity: backdropOpacity }]}>
+          <Pressable style={{ flex: 1 }} onPress={onClose} />
+        </Animated.View>
+
+        {/* גיליון תחתון שעולה */}
+        <Animated.View
           style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            maxHeight: '82%',
             backgroundColor: colors.card,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
-            maxHeight: '82%',
+            transform: [{ translateY: sheetTranslate }],
           }}
-          onPress={(e) => e.stopPropagation()}
         >
           <SafeAreaView edges={['bottom']}>
-            {/* Grabber + header */}
+            {/* ידית + כותרת */}
             <View style={{ alignItems: 'center', paddingTop: spacing.md }}>
               <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: colors.border }} />
             </View>
@@ -80,7 +109,9 @@ export function HelpModal({ visible, onClose, role }: { visible: boolean; onClos
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name="help-buoy" size={26} color={colors.brand700} />
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="help-buoy" size={22} color={colors.brand700} />
+                </View>
                 <View>
                   <Txt variant="h1" weight="extrabold">איך זה עובד</Txt>
                   <Txt variant="caption" color={colors.textMuted}>{roleLabel}</Txt>
@@ -105,17 +136,11 @@ export function HelpModal({ visible, onClose, role }: { visible: boolean; onClos
                     padding: spacing.lg,
                   }}
                 >
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: colors.brand50,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Ionicons name={it.icon} size={20} color={colors.brand700} />
+                  {/* מספר שלב + אייקון */}
+                  <View style={{ alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name={it.icon} size={20} color={colors.brand700} />
+                    </View>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Txt variant="body" weight="bold" style={{ marginBottom: 2 }}>{it.title}</Txt>
@@ -125,8 +150,8 @@ export function HelpModal({ visible, onClose, role }: { visible: boolean; onClos
               ))}
             </ScrollView>
           </SafeAreaView>
-        </Pressable>
-      </Pressable>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
