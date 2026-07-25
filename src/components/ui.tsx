@@ -94,6 +94,7 @@ export function Button({
   loading,
   disabled,
   icon,
+  iconAfter,
   style,
   color,
 }: {
@@ -103,6 +104,8 @@ export function Button({
   loading?: boolean;
   disabled?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
+  /** מציב את האייקון אחרי הטקסט (ב-RTL → בצד שמאל הפיזי של המילה) */
+  iconAfter?: boolean;
   style?: ViewStyle;
   /** דריסת צבע הרקע לכפתור primary (למשל צבע השכבה) */
   color?: string;
@@ -126,10 +129,11 @@ export function Button({
         <ActivityIndicator color={fg} />
       ) : (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
+          {icon && !iconAfter ? <Ionicons name={icon} size={18} color={fg} /> : null}
           <Txt weight="bold" color={fg}>
             {title}
           </Txt>
+          {icon && iconAfter ? <Ionicons name={icon} size={18} color={fg} /> : null}
         </View>
       )}
     </Pressable>

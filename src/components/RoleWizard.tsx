@@ -84,7 +84,7 @@ export function RoleWizard({ enabled }: { enabled: boolean }) {
                 ))}
               </View>
 
-              <Button title="התחלת הרשמה" icon="arrow-back" onPress={() => setStep('menu')} style={{ marginTop: spacing.lg }} />
+              <Button title="התחלת הרשמה" icon="arrow-back" iconAfter onPress={() => setStep('menu')} style={{ marginTop: spacing.lg }} />
               <Button title="ארשם בהמשך" variant="ghost" onPress={dismiss} style={{ marginTop: spacing.sm }} />
             </>
           ) : (
