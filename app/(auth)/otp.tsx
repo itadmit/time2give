@@ -40,9 +40,12 @@ export default function OtpScreen() {
     <>
       <Header title="אימות קוד" onBack={() => safeBack()} />
       <Screen>
-        <Txt variant="body" color={colors.textMuted} center style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
-          שלחנו קוד חד-פעמי בן {CODE_LENGTH} ספרות אל{'\n'}
-          <Txt weight="bold" color={colors.text}>{phone}</Txt>
+        <Txt variant="body" color={colors.textMuted} center style={{ marginTop: spacing.xl, marginBottom: spacing.sm }}>
+          שלחנו קוד חד-פעמי בן {CODE_LENGTH} ספרות אל:
+        </Txt>
+        {/* writingDirection ltr — המספר מוצג משמאל-לימין כך שה-+ בצד שמאל, וממורכז */}
+        <Txt variant="body" weight="bold" color={colors.text} center style={{ marginBottom: spacing.xl, writingDirection: 'ltr' }}>
+          {phone}
         </Txt>
 
         {/* תיבות ספרה-לספרה. TextInput שקוף מעליהן תופס את ההקלדה ואת מילוי-האוטומטי מ-SMS. */}
