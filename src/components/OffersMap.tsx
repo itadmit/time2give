@@ -16,8 +16,9 @@ export type MapOffer = {
 // מרכז ישראל - נקודת פתיחה עד שמאתרים את המיקום של המשתמש
 const INITIAL = { latitude: 31.5, longitude: 34.9, latitudeDelta: 3.2, longitudeDelta: 2.2 };
 
-// דלתא הזום כשממרכזים על המשתמש: 'card' = קרוב (טאב תרומות), 'fullscreen' = טיפה רחוק (רקע מסך הבית)
-const USER_DELTA = { card: 0.06, fullscreen: 0.28 } as const;
+// דלתא הזום כשממרכזים על המשתמש. 'card' = מסך "תרומות זמינות" ברמת זום ~12 (360/2^12≈0.088,
+// לא קרוב מדי ולא רחוק). 'fullscreen' = רקע מסך הבית (רחוק יותר).
+const USER_DELTA = { card: 0.088, fullscreen: 0.28 } as const;
 
 type Props = {
   offers: MapOffer[];
