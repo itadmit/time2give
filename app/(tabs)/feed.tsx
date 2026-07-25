@@ -191,7 +191,7 @@ export default function Feed() {
       <Pressable style={StyleSheet.absoluteFill} onPress={() => setMapOpen(true)}>
         <View style={styles.tapHint} pointerEvents="none">
           <Ionicons name="expand" size={14} color={colors.white} />
-          <Txt variant="caption" weight="medium" color={colors.white}>פתח את המפה המלאה 🗺️</Txt>
+          <Txt variant="caption" weight="medium" color={colors.white}>פתח את המפה המלאה</Txt>
         </View>
       </Pressable>
 
@@ -203,13 +203,13 @@ export default function Feed() {
               <Ionicons name="person" size={22} color={colors.white} />
             ) : (
               <Txt weight="extrabold" color={colors.white} variant="h2">
-                {profile?.full_name?.trim()?.charAt(0) ?? '👋'}
+                {profile?.full_name?.trim()?.charAt(0) ?? ''}
               </Txt>
             )}
           </View>
           <View style={{ flex: 1 }}>
             <Txt weight="bold">
-              {isGuest ? 'שלום אורח בדיקה 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''} 👋`}
+              {isGuest ? 'שלום אורח בדיקה' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}
             </Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <Txt variant="caption" color={colors.textMuted}>
@@ -341,7 +341,7 @@ export default function Feed() {
                   <Txt variant="caption" color={colors.textMuted}>
                     {selectedOffer.donor_name}
                     {selectedLevel ? ` · Level ${selectedLevel.n}` : ''}
-                    {selectedOffer.donor_rating > 0 ? ` · ⭐ ${selectedOffer.donor_rating}` : ''}
+                    {selectedOffer.donor_rating > 0 ? ` · דירוג ${selectedOffer.donor_rating}` : ''}
                     {selectedOffer.origin_city ? ` · ${selectedOffer.origin_city}` : ''}
                   </Txt>
                 </View>
