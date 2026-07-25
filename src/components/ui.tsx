@@ -48,7 +48,8 @@ export function Screen({ children, scroll, style }: { children: React.ReactNode;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }} edges={['bottom']}>
       {scroll ? (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg }} showsVerticalScrollIndicator={false}>
+        // keyboardShouldPersistTaps="handled" — לחיצה על כפתור כשהמקלדת פתוחה נקלטת מיד (בלי לחיצה כפולה)
+        <ScrollView contentContainerStyle={{ padding: spacing.lg }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
       ) : (
