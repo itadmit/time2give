@@ -3,6 +3,7 @@ import { I18nManager, View, ActivityIndicator, Text, ScrollView } from 'react-na
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import {
   useFonts,
   Heebo_400Regular,
@@ -85,7 +86,7 @@ function AuthGate() {
 }
 
 export default function RootLayout() {
-  // OTA — תבנית QuickCRM: בודק, מוריד, ומציג Alert; reloadAsync רק בלחיצת משתמש
+  // OTA ברקע: בודק ומוריד (stage) עדכון. לא מחיל כאן — ההחלה קורית במסך הפתיחה למטה.
   useOTAUpdates();
 
   const [fontsLoaded, fontError] = useFonts({
@@ -101,12 +102,56 @@ export default function RootLayout() {
     const t = setTimeout(() => setFontsTimedOut(true), 3000);
     return () => clearTimeout(t);
   }, []);
-  const ready = fontsLoaded || !!fontError || fontsTimedOut;
+  const fontsReady = fontsLoaded || !!fontError || fontsTimedOut;
 
-  if (!ready) {
+  // ── OTA apply-at-boot (דפוס quick10) ──────────────────────────────────────
+  // ⚠️ reloadAsync מקריס את האפליקציה כשה-MapView חי. לכן מחילים עדכון staged
+  // **רק בזמן שמסך הפתיחה הזה מכסה** — לפני שעץ האפליקציה (feed + מפה) נטען,
+  // ו**לעולם לא** אחרי שהאפליקציה נחשפה (booted). כך ההחלה אמינה ובלי קריסה.
+  const otaEnabled = !__DEV__ && Updates.isEnabled;
+  const { isChecking, isDownloading, isUpdatePending } = Updates.useUpdates();
+  const [booted, setBooted] = useState(false);
+  const [checkStarted, setCheckStarted] = useState(false);
+  const [otaBootTimedOut, setOtaBootTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (isChecking) setCheckStarted(true);
+  }, [isChecking]);
+
+  // תקרה קשיחה: לא מחזיקים את מסך הפתיחה יותר מ-12ש' בשביל OTA
+  useEffect(() => {
+    const t = setTimeout(() => setOtaBootTimedOut(true), 12000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // מחילים עדכון staged בזמן שהמסך מכסה (אין עדיין MapView → בטוח)
+  useEffect(() => {
+    if (booted || !otaEnabled) return;
+    if (isUpdatePending) Updates.reloadAsync().catch(() => {});
+  }, [booted, otaEnabled, isUpdatePending]);
+
+  // ה-OTA "נפתר" כשאין עדכון בדרך: הבדיקה הסתיימה בלי הורדה/עדכון-ממתין (או timeout)
+  const otaResolved =
+    !otaEnabled ||
+    otaBootTimedOut ||
+    (checkStarted && !isChecking && !isDownloading && !isUpdatePending);
+
+  const showCover = !booted && (!fontsReady || !otaResolved);
+
+  useEffect(() => {
+    if (!showCover && !booted) setBooted(true);
+  }, [showCover, booted]);
+
+  if (showCover) {
+    const installing = isDownloading || isUpdatePending;
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand700 }}>
         <ActivityIndicator color={colors.white} size="large" />
+        {installing ? (
+          <Text style={{ color: colors.white, marginTop: 16, fontSize: 14, fontWeight: '600' }}>
+            מתקין עדכון…
+          </Text>
+        ) : null}
       </View>
     );
   }

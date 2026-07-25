@@ -1,76 +1,37 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Alert, AppState, AppStateStatus } from 'react-native';
+import { useEffect, useCallback } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import * as Updates from 'expo-updates';
 
-interface OTAState {
-  isChecking: boolean;
-  isDownloading: boolean;
-  isReady: boolean;
-  error: string | null;
-}
-
 /**
- * OTA update hook.
+ * OTA background fetcher — בודק עדכון בעליית האפליקציה ובחזרה מרקע, ו**מוריד** (stage)
+ * כל עדכון זמין. הוא לא קורא ל-reloadAsync (מקריס את האפליקציה כשה-MapView חי) ולא מציג Alert.
  *
- * ⚠️ ההיסטוריה: `Updates.reloadAsync()` מקריס את האפליקציה הזאת — יש MapView חי
- * במסך הבית, ו-react-native-maps + הריסת ה-bridge בזמן reload = קריסה נייטיבית.
- * לעומת זאת הוכח (גרסה התחלפה אחרי cold-restart) ש**עדכון שהורד עם `fetchUpdateAsync`
- * מוחל אמין בהפעלה הבאה של האפליקציה, בלי reloadAsync**.
- *
- * לכן: בודקים, מורידים (fetch → staged), ומיידעים את המשתמש שהעדכון ייכנס בפתיחה הבאה.
- * לא קוראים ל-reloadAsync בכלל.
+ * ההחלה עצמה קורית ב-`app/_layout.tsx`: מסך הפתיחה מחיל עדכון staged ב-reloadAsync
+ * בזמן בטוח — לפני שעץ האפליקציה (והמפה) נטען. כך: החלה אמינה בפתיחה אחת, בלי קריסה.
  */
 export function useOTAUpdates() {
-  const [state, setState] = useState<OTAState>({
-    isChecking: false,
-    isDownloading: false,
-    isReady: false,
-    error: null,
-  });
-  // כדי לא להציג את ה-Alert שוב ושוב עבור אותו עדכון בזמן ריצה
-  const [notified, setNotified] = useState(false);
-
-  const checkForUpdate = useCallback(async () => {
+  const checkAndStage = useCallback(async () => {
     if (__DEV__ || !Updates.isEnabled) return;
     try {
-      setState((p) => ({ ...p, isChecking: true, error: null }));
-      const update = await Updates.checkForUpdateAsync();
-
-      if (update.isAvailable) {
-        setState((p) => ({ ...p, isChecking: false, isDownloading: true }));
-        await Updates.fetchUpdateAsync(); // מוריד ומכין (staged) — יוחל ב-cold-restart
-        setState((p) => ({ ...p, isDownloading: false, isReady: true }));
-
-        setNotified((already) => {
-          if (!already) {
-            Alert.alert(
-              'עדכון מוכן ✓',
-              'גרסה חדשה של Time2Give הותקנה. סגור ופתח את האפליקציה כדי להחיל אותה.',
-              [{ text: 'הבנתי' }],
-              { cancelable: true },
-            );
-          }
-          return true;
-        });
-      } else {
-        setState((p) => ({ ...p, isChecking: false }));
+      const res = await Updates.checkForUpdateAsync();
+      if (res.isAvailable) {
+        // fetch → מסמן isUpdatePending; ה-layout יחיל בפתיחה הבאה (או מיד אם עדיין ב-boot cover)
+        await Updates.fetchUpdateAsync();
       }
-    } catch (e: any) {
-      setState((p) => ({ ...p, isChecking: false, isDownloading: false, error: e?.message || 'שגיאה בבדיקת עדכונים' }));
+    } catch {
+      // כשל בבדיקת/הורדת עדכון לא אמור להפריע לאפליקציה
     }
   }, []);
 
   useEffect(() => {
-    checkForUpdate();
-  }, [checkForUpdate]);
+    checkAndStage();
+  }, [checkAndStage]);
 
   useEffect(() => {
     const onChange = (s: AppStateStatus) => {
-      if (s === 'active') checkForUpdate();
+      if (s === 'active') checkAndStage();
     };
     const sub = AppState.addEventListener('change', onChange);
     return () => sub.remove();
-  }, [checkForUpdate]);
-
-  return { ...state, checkForUpdate };
+  }, [checkAndStage]);
 }
