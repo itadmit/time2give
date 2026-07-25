@@ -10,7 +10,7 @@ const SEEN_KEY = 'role_wizard_seen_v1';
 export const PENDING_ROLE_KEY = 'pending_role';
 
 type Cube = {
-  role: 'donor' | 'recipient' | 'coordinator' | 'courier';
+  role: 'donor' | 'recipient' | 'courier';
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   desc: string;
@@ -18,10 +18,9 @@ type Cube = {
 };
 
 const CUBES: Cube[] = [
-  { role: 'donor', icon: 'gift', title: 'תורם', desc: 'מכין ומספק מזון לחיילים' },
-  { role: 'recipient', icon: 'shield-checkmark', title: 'חייל', desc: 'מבקש או מאשר תרומות' },
-  { role: 'coordinator', icon: 'git-network', title: 'רכז', desc: 'מחבר תורמים לחיילים · טעון אישור' },
-  { role: 'courier', icon: 'car', title: 'נהג', desc: 'מוזמן ע"י רכזים בלבד · לביטחון חיילינו', disabled: true },
+  { role: 'donor', icon: 'gift', title: 'תורם', desc: 'מכין ומספק מזון' },
+  { role: 'recipient', icon: 'shield-checkmark', title: 'מבקש', desc: 'מבקש או מאשר תרומות' },
+  { role: 'courier', icon: 'car', title: 'נהג מתנדב', desc: 'מוביל תרומות למבקשים' },
 ];
 
 /**

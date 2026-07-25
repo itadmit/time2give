@@ -8,8 +8,8 @@ export type UserRole = 'donor' | 'recipient' | 'coordinator' | 'courier' | 'org_
 export const ROLE_LABELS: Record<UserRole, string> = {
   donor: 'תורם',
   recipient: 'מקבל מורשה',
-  coordinator: 'רכז שינוע',
-  courier: 'משנע מתנדב',
+  coordinator: 'נהג מתנדב',
+  courier: 'נהג מתנדב',
   org_member: 'עמותה',
   admin: 'אדמין',
 };
@@ -68,7 +68,7 @@ type StatusUI = { label: string; color: string; tint: string; icon: string };
 export const STATUS_UI: Record<AssignmentStatus, StatusUI> = {
   committed: { label: 'התקבלה התחייבות', color: colors.info, tint: statusTint.info, icon: 'checkmark-circle' },
   waiting_courier: { label: 'ממתין לשינוע', color: colors.warning, tint: statusTint.warning, icon: 'car' },
-  courier_assigned: { label: 'שובץ משנע', color: colors.info, tint: statusTint.info, icon: 'navigate' },
+  courier_assigned: { label: 'נהג מתנדב בדרך', color: colors.info, tint: statusTint.info, icon: 'navigate' },
   picked_up: { label: 'נאסף', color: colors.info, tint: statusTint.info, icon: 'cube' },
   on_the_way: { label: 'בדרך', color: colors.info, tint: statusTint.info, icon: 'navigate' },
   delivered: { label: 'נמסר', color: colors.success, tint: statusTint.success, icon: 'checkmark-done' },

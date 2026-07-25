@@ -18,14 +18,9 @@ export default function TabsLayout() {
         name="feed"
         options={{ title: 'בית', tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} /> }}
       />
-      <Tabs.Screen
-        name="needs"
-        options={{ title: 'בקשות', tabBarIcon: ({ color, size }) => <Ionicons name="megaphone" size={size} color={color} /> }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{ title: 'תרומות', tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} /> }}
-      />
+      {/* בקשות + תרומות הוסתרו מסרגל הטאבים — הכל נגיש מהמפה שבמסך הבית (צמצום מסכים) */}
+      <Tabs.Screen name="needs" options={{ href: null }} />
+      <Tabs.Screen name="map" options={{ href: null }} />
       <Tabs.Screen
         name="activity"
         options={{ title: 'הפעילות שלי', tabBarIcon: ({ color, size }) => <Ionicons name="time" size={size} color={color} /> }}

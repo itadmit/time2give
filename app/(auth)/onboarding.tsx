@@ -11,12 +11,11 @@ import { ROLE_LABELS, RECIPIENT_TYPE_LABELS, type UserRole, type RecipientType }
 import type { Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
 
-// נהג מושבת — מוזמן ע"י רכזים בלבד (ביטחון). מוצג כקובייה נעולה ולא נבחר בהרשמה.
+// שלושה תפקידים בלבד: תורם / מבקש / נהג מתנדב (מאחד את הרכז והנהג הישנים).
 const ROLE_OPTIONS: { role: UserRole; icon: keyof typeof Ionicons.glyphMap; desc: string; disabled?: boolean }[] = [
-  { role: 'donor', icon: 'gift', desc: 'מכין ומספק מזון לחיילים' },
-  { role: 'recipient', icon: 'shield-checkmark', desc: 'חייל · מבקש/מאשר תרומות' },
-  { role: 'coordinator', icon: 'git-network', desc: 'מחבר תורמים לחיילים · טעון אישור' },
-  { role: 'courier', icon: 'car', desc: 'מוזמן ע"י רכזים בלבד · לביטחון חיילינו', disabled: true },
+  { role: 'donor', icon: 'gift', desc: 'מכין ומספק מזון' },
+  { role: 'recipient', icon: 'shield-checkmark', desc: 'מבקש או מאשר תרומות' },
+  { role: 'courier', icon: 'car', desc: 'מוביל תרומות למבקשים' },
 ];
 
 const RECIPIENT_TYPES: RecipientType[] = ['military_unit', 'hospital', 'elderly', 'family', 'ngo', 'rescue', 'evacuee', 'emergency'];
@@ -32,13 +31,14 @@ export default function Onboarding() {
   // תפקיד שנבחר בויזארד הפתיחה — נטען מראש
   useEffect(() => {
     AsyncStorage.getItem(PENDING_ROLE_KEY).then((r) => {
-      if (r === 'donor' || r === 'recipient' || r === 'coordinator') setRole(r as UserRole);
+      if (r === 'donor' || r === 'recipient' || r === 'courier') setRole(r as UserRole);
       AsyncStorage.removeItem(PENDING_ROLE_KEY);
     });
   }, []);
 
   const isRecipient = role === 'recipient';
-  const needsCoverage = role === 'donor' || role === 'coordinator';
+  // תורם ונהג מתנדב בוחרים אזורים שהם יכולים להגיע אליהם
+  const needsCoverage = role === 'donor' || role === 'courier';
 
   const save = async () => {
     if (!name.trim()) return Alert.alert('חסר שם', 'הזן שם מלא');

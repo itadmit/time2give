@@ -6,7 +6,7 @@ import { Header, Txt, Card, Button, StatusBadge, Divider } from '../../src/compo
 import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
-import { revealPhone, advanceAssignment, submitRating } from '../../src/lib/api';
+import { revealPhone, advanceAssignment, submitRating, claimDelivery } from '../../src/lib/api';
 import { statusUI, type AssignmentStatus } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
@@ -31,7 +31,7 @@ const EVENT_LABEL: Record<string, string> = {
   offer_claimed: 'התרומה נבחרה',
   committed: 'התקבלה התחייבות',
   transport_requested: 'נדרש שינוע',
-  courier_assigned: 'שובץ משנע',
+  courier_assigned: 'נהג מתנדב לקח את המשלוח',
   picked_up: 'נאסף מהתורם',
   on_the_way: 'בדרך ליעד',
   delivered: 'נמסר',
@@ -40,7 +40,7 @@ const EVENT_LABEL: Record<string, string> = {
   cancelled: 'בוטל',
 };
 
-const ROLE_LABEL: Record<string, string> = { donor: 'תורם', courier: 'משנע', recipient: 'מקבל' };
+const ROLE_LABEL: Record<string, string> = { donor: 'תורם', courier: 'נהג מתנדב', recipient: 'מקבל' };
 
 type NextAction = {
   status: AssignmentStatus;
@@ -106,6 +106,13 @@ export default function AssignmentDetail() {
     await load();
   };
 
+  // נהג מתנדב תופס משלוח פתוח ישירות ממסך השיבוץ
+  const takeDelivery = async () => {
+    const { error } = await claimDelivery(id!);
+    if (error) return Alert.alert('שגיאה', error.message);
+    await load();
+  };
+
   const onNext = (action: NextAction) => {
     if (action.confirm) {
       Alert.alert(action.confirm.title, action.confirm.message, [
@@ -147,6 +154,10 @@ export default function AssignmentDetail() {
   const it = a.need ?? a.offer;
   const next = NEXT[a.status];
   const canReveal = ['committed', 'courier_assigned', 'picked_up', 'on_the_way', 'delivered', 'confirmed', 'rated'].includes(a.status);
+  const isDriver =
+    profile?.roles?.includes('courier') ||
+    profile?.roles?.includes('coordinator') ||
+    profile?.roles?.includes('admin');
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
@@ -169,11 +180,20 @@ export default function AssignmentDetail() {
         {/* Actions */}
         <View style={{ height: spacing.lg }} />
         {a.status === 'waiting_courier' ? (
-          <Card style={{ backgroundColor: '#FBF0DA' }}>
-            <Txt variant="small" weight="bold" color={colors.warning}>
-              ממתין לשיבוץ משנע ע"י רכז
-            </Txt>
-          </Card>
+          isDriver ? (
+            <>
+              <Button title="אני לוקח את המשלוח" icon="car" onPress={takeDelivery} />
+              <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: 6 }}>
+                אתם מתחייבים לאסוף מהתורם ולמסור למבקש. את הכתובת המדויקת תתאמו בטלפון.
+              </Txt>
+            </>
+          ) : (
+            <Card style={{ backgroundColor: '#FBF0DA' }}>
+              <Txt variant="small" weight="bold" color={colors.warning}>
+                ממתין שנהג מתנדב ייקח את המשלוח
+              </Txt>
+            </Card>
+          )
         ) : null}
         {next ? (
           <>

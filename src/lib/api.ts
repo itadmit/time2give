@@ -101,6 +101,11 @@ export async function assignCourier(assignment_id: string, courier_id: string) {
   return supabase.rpc('assign_courier', { p_assignment_id: assignment_id, p_courier_id: courier_id });
 }
 
+/** נהג מתנדב תופס משלוח פתוח ומשבץ את עצמו (מחליף שיבוץ ידני ע"י רכז) */
+export async function claimDelivery(assignment_id: string) {
+  return supabase.rpc('claim_delivery', { p_assignment_id: assignment_id });
+}
+
 /** מועמדי שינוע מדורגים לפי כיסוי אזור / זמינות / מוניטין */
 export async function couriersForAssignment(assignment_id: string) {
   return supabase.rpc('couriers_for_assignment', { p_assignment_id: assignment_id });

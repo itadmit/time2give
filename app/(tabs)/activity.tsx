@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header, Txt, Card, Button, StatusBadge, EmptyState } from '../../src/components/ui';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
+import { claimDelivery } from '../../src/lib/api';
 import { statusUI, type AssignmentStatus } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
 import { colors, spacing } from '../../src/theme/tokens';
@@ -25,7 +26,12 @@ export default function Activity() {
   const router = useRouter();
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const isCoordinator = profile?.roles?.includes('coordinator');
+  const [taking, setTaking] = useState<string | null>(null);
+  // נהג מתנדב (מאחד רכז+נהג ישנים) רואה משלוחים פתוחים ותופס אותם בעצמו
+  const isDriver =
+    profile?.roles?.includes('courier') ||
+    profile?.roles?.includes('coordinator') ||
+    profile?.roles?.includes('admin');
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -44,12 +50,20 @@ export default function Activity() {
     setRefreshing(false);
   };
 
-  const dispatch = (assignmentId: string) => router.push(`/dispatch/${assignmentId}`);
+  // הנהג המתנדב תופס את המשלוח בעצמו — במקום שיבוץ ידני של רכז
+  const take = async (assignmentId: string) => {
+    setTaking(assignmentId);
+    const { error } = await claimDelivery(assignmentId);
+    setTaking(null);
+    if (error) return Alert.alert('שגיאה', error.message);
+    await load();
+    router.push(`/assignment/${assignmentId}`);
+  };
 
   const waiting = rows.filter((r) => r.status === 'waiting_courier');
   const info = (r: AssignmentRow) => r.need ?? r.offer;
 
-  const renderCard = (r: AssignmentRow, showDispatch: boolean) => {
+  const renderCard = (r: AssignmentRow, showTake: boolean) => {
     const ui = statusUI(r.status);
     const it = info(r);
     return (
@@ -68,8 +82,14 @@ export default function Activity() {
             {ui.label}
           </Txt>
         </View>
-        {showDispatch ? (
-          <Button title="שבץ משנע" icon="person-add" onPress={() => dispatch(r.id)} style={{ marginTop: 12 }} />
+        {showTake ? (
+          <Button
+            title="אני לוקח את המשלוח"
+            icon="car"
+            loading={taking === r.id}
+            onPress={() => take(r.id)}
+            style={{ marginTop: 12 }}
+          />
         ) : null}
       </Card>
     );
@@ -82,10 +102,10 @@ export default function Activity() {
         contentContainerStyle={{ padding: spacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand700} />}
       >
-        {isCoordinator && waiting.length > 0 ? (
+        {isDriver && waiting.length > 0 ? (
           <>
             <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
-              ממתין לשיבוץ שינוע
+              משלוחים פתוחים לאיסוף
             </Txt>
             {waiting.map((r) => renderCard(r, true))}
             <View style={{ height: spacing.lg }} />
