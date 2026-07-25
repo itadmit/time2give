@@ -24,9 +24,9 @@ const ROLE_CARDS: RoleCard[] = [
 ];
 
 const STEPS = [
-  { icon: 'person-circle' as const, text: 'בוחרים תפקיד' },
-  { icon: 'sparkles' as const, text: 'מפרסמים או מוצאים תרומה' },
-  { icon: 'call' as const, text: 'מתחברים בטלפון ומסיימים' },
+  'בוחרים סוג חשבון',
+  'מפרסמים תרומה חדשה או מוצאים תרומה עבורכם',
+  'נהנים!',
 ];
 
 /**
@@ -70,23 +70,22 @@ export function RoleWizard({ enabled }: { enabled: boolean }) {
                 ברוכים הבאים ל‑Time2Give
               </Txt>
               <Txt variant="body" color={colors.textMuted} center style={{ marginBottom: spacing.lg }}>
-                מחברים בין מי שרוצה לתרום מזון לבין מי שצריך — בפשטות ובבטחה.
+                הפלטפורמה שמחברת בין תורמים ליחידות צבאיות
               </Txt>
 
               <View style={styles.steps}>
-                {STEPS.map((s, i) => (
+                {STEPS.map((text, i) => (
                   <View key={i} style={styles.stepRow}>
                     <View style={styles.stepNum}>
                       <Txt weight="extrabold" color={colors.white} variant="small">{i + 1}</Txt>
                     </View>
-                    <Ionicons name={s.icon} size={20} color={colors.brand700} />
-                    <Txt weight="medium" style={{ flex: 1 }}>{s.text}</Txt>
+                    <Txt weight="medium" style={{ flex: 1 }}>{text}</Txt>
                   </View>
                 ))}
               </View>
 
-              <Button title="בואו נתחיל" icon="arrow-back" onPress={() => setStep('menu')} style={{ marginTop: spacing.lg }} />
-              <Button title="אגלוש בינתיים" variant="ghost" onPress={dismiss} style={{ marginTop: spacing.sm }} />
+              <Button title="התחלת הרשמה" icon="arrow-back" onPress={() => setStep('menu')} style={{ marginTop: spacing.lg }} />
+              <Button title="ארשם בהמשך" variant="ghost" onPress={dismiss} style={{ marginTop: spacing.sm }} />
             </>
           ) : (
             <>
@@ -113,7 +112,7 @@ export function RoleWizard({ enabled }: { enabled: boolean }) {
               </View>
 
               <Button title="חזרה" variant="ghost" icon="arrow-forward" onPress={() => setStep('welcome')} style={{ marginTop: spacing.lg }} />
-              <Button title="אגלוש בינתיים" variant="ghost" onPress={dismiss} style={{ marginTop: 2 }} />
+              <Button title="ארשם בהמשך" variant="ghost" onPress={dismiss} style={{ marginTop: 2 }} />
             </>
           )}
         </View>
