@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { View, Pressable, StyleSheet, Modal, Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Pressable, StyleSheet, Modal, Alert, Animated, Easing } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +53,59 @@ type AppMode = 'donate' | 'receive';
  *  - "דוק" פקודות צף למטה: סטטיסטיקות חיות + שורת כפתורי פעולה מעוגלים + הצצה לפעילות הקהילה.
  * אין גלילת-עמוד: המפה שולטת, הכל צף מעליה.
  */
+// הודעות עידוד כשאין עדיין פעילות אמיתית בפיד
+const ENCOURAGE = [
+  'כל תרומה עושה הבדל 💙',
+  'יחד תומכים במי שנותן מעצמו',
+  'תודה שאתם חלק מהקהילה',
+  'כל מנה מגיעה למי שצריך',
+];
+
+/**
+ * טיקר עדכונים מתחלף: שורה אחת שדוהה פנימה ועולה, ואז נעלמת כלפי מעלה — ומגיעה הבאה.
+ * מציג עדכונים מכל האפליקציה (מעודד), לא רק הפעולה האחרונה.
+ */
+function ActivityTicker({ items }: { items: string[] }) {
+  const [idx, setIdx] = useState(0);
+  const opacity = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    let timer: ReturnType<typeof setTimeout>;
+    opacity.setValue(0);
+    ty.setValue(10);
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.timing(ty, { toValue: 0, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+    // רק אם יש יותר מפריט אחד יש טעם להתחלף
+    if (items.length > 1) {
+      timer = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 0, duration: 320, useNativeDriver: true }),
+          Animated.timing(ty, { toValue: -10, duration: 320, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        ]).start(({ finished }) => {
+          if (finished) setIdx((i) => (i + 1) % items.length);
+        });
+      }, 3200);
+    }
+    return () => clearTimeout(timer);
+  }, [idx, items.length]);
+
+  if (items.length === 0) return null;
+  return (
+    <View style={styles.communityChip}>
+      <Ionicons name="ribbon" size={16} color={colors.success} />
+      <Animated.View style={{ flex: 1, opacity, transform: [{ translateY: ty }] }}>
+        <Txt variant="caption" weight="medium" numberOfLines={1}>
+          {items[idx % items.length]}
+        </Txt>
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function Feed() {
   const { profile, session } = useAuth();
   const { unread } = useNotifications();
@@ -107,7 +160,9 @@ export default function Feed() {
   const mapCount = showNeeds ? needs.length : offers.length;
   const mapCountLabel = showNeeds ? 'בקשות פתוחות' : 'תרומות זמינות';
 
-  const latest = events[0];
+  // פריטי הטיקר: עדכונים אמיתיים מהפיד, ואם אין — הודעות עידוד
+  const realUpdates = events.map((e) => e.payload?.text).filter((t): t is string => !!t);
+  const tickerItems = realUpdates.length ? realUpdates : ENCOURAGE;
 
   // בקשות (region בלבד) → סמנים במרכז האזור, עם היסט קטן לבקשות באותו אזור כדי שלא יחפפו
   const needMarkers: MapOffer[] = needs.map((n, i) => {
@@ -209,7 +264,7 @@ export default function Feed() {
           </View>
           <View style={{ flex: 1 }}>
             <Txt weight="bold">
-              {isGuest ? 'שלום אורח בדיקה' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}
+              {isGuest ? 'שלום אורח 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}
             </Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <Txt variant="caption" color={colors.textMuted}>
@@ -261,15 +316,8 @@ export default function Feed() {
 
       {/* ── דוק פקודות צף תחתון ── */}
       <SafeAreaView edges={['bottom']} style={styles.dockWrap} pointerEvents="box-none">
-        {/* הצצה לפעילות הקהילה (צ'יפ) */}
-        {latest ? (
-          <View style={styles.communityChip}>
-            <Ionicons name="ribbon" size={16} color={colors.success} />
-            <Txt variant="caption" weight="medium" style={{ flex: 1 }} numberOfLines={1}>
-              {latest.payload?.text ?? 'פעילות חדשה בקהילה'}
-            </Txt>
-          </View>
-        ) : null}
+        {/* טיקר עדכונים מתחלף (פייד + עולה) */}
+        <ActivityTicker items={tickerItems} />
 
         <View style={styles.dock}>
           {/* סטטיסטיקות חיות */}

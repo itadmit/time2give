@@ -42,7 +42,7 @@ const HELP: Record<UserRole, HelpItem[]> = {
 
 /** עזרה כללית כשאין תפקיד (אורח) */
 const GENERAL: HelpItem[] = [
-  { icon: 'heart-circle', title: 'ברוכים הבאים ל‑Time2Give', body: 'מחברים בין מי שרוצה לתרום מזון לבין מי שצריך — בפשטות ובבטחה.' },
+  { icon: 'heart-circle', title: 'ברוכים הבאים ל‑Time2Give', body: 'הפלטפורמה שמחברת בין תורמים ליחידות צבאיות.' },
   { icon: 'person-circle', title: 'בוחרים תפקיד', body: 'תורם, מבקש או נהג מתנדב. בוחרים פעם אחת ומתחילים.' },
   { icon: 'call', title: 'מתחברים בטלפון', body: 'אחרי התאמה מתאמים ישירות בטלפון — בלי מתווכים.' },
 ];

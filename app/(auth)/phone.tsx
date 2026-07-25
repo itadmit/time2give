@@ -82,7 +82,7 @@ export default function PhoneScreen() {
           Time2Give
         </Txt>
         <Txt variant="body" color={colors.textMuted} center style={{ marginTop: 4 }}>
-          מחברים בין תורמים למי שצריך - במהירות ובביטחון
+          הפלטפורמה שמחברת בין תורמים ליחידות צבאיות
         </Txt>
       </View>
 
