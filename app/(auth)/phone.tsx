@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View, Alert, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, Txt, Field, Button, Card } from '../../src/components/ui';
+import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
 import { DEMO_LOGINS, DEMO_PASSWORD, findDemoByPhone } from '../../src/lib/demoUsers';
-import { colors, spacing } from '../../src/theme/tokens';
+import { colors, spacing, radius } from '../../src/theme/tokens';
 
 /** ממיר 05X-XXXXXXX ל-E.164 (+9725X...) */
 function toE164(input: string): string | null {
@@ -59,8 +62,19 @@ export default function PhoneScreen() {
   };
 
   return (
-    <Screen scroll>
-      <View style={{ alignItems: 'center', marginTop: 48, marginBottom: 32 }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+      {/* אייקוני שורת הסטטוס בכהה — אחרת הם לבנים על רקע בהיר ונעלמים */}
+      <StatusBar style="dark" />
+      {/* שורת ניווט עליונה עם כפתור חזרה (המסך הזה בלי Header) */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.surface }}>
+        <View style={{ flexDirection: 'row', paddingHorizontal: spacing.lg, paddingTop: spacing.sm }}>
+          <Pressable onPress={() => safeBack()} hitSlop={12} style={styles.backBtn}>
+            <Ionicons name="chevron-forward" size={26} color={colors.brand700} />
+          </Pressable>
+        </View>
+      </SafeAreaView>
+      <Screen scroll>
+      <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 32 }}>
         <View style={styles.logo}>
           <Ionicons name="heart-circle" size={64} color={colors.brand700} />
         </View>
@@ -105,11 +119,20 @@ export default function PhoneScreen() {
           ))}
         </Card>
       ) : null}
-    </Screen>
+      </Screen>
+    </View>
   );
 }
 
 const styles = {
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand50,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
   logo: {
     width: 96,
     height: 96,
