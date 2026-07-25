@@ -96,7 +96,7 @@ export default function PhoneScreen() {
       />
       <Button title="שליחת קוד אימות" onPress={submit} loading={loading} icon="arrow-back" />
       <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: spacing.lg }}>
-        נשלח אליך קוד חד-פעמי ב-SMS
+        נשלח אליך קוד חד-פעמי ב-WhatsApp
       </Txt>
 
       {__DEV__ ? (
