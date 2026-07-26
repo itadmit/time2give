@@ -30,6 +30,11 @@
     },
     "android": {
       "package": "com.time4giving.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAeCDj_i93eI_Ln7ZmDz1Rxv9ed06c3zRg"
+        }
+      },
       "adaptiveIcon": {
         "backgroundColor": "#1D4E7C",
         "foregroundImage": "./assets/android-icon-foreground.png",
