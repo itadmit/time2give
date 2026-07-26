@@ -1,8 +1,11 @@
 import React from 'react';
+import { MAPS_AVAILABLE } from '../lib/maps';
 
 /**
- * ErrorBoundary - react-native-maps דורש מודול נייטיב (dev build).
- * ב-Expo Go המודול חסר וה-render נכשל → מציגים fallback במקום קריסה.
+ * ErrorBoundary + שער זמינות למפה.
+ * - react-native-maps דורש מודול נייטיב (dev/prod build); ב-Expo Go הוא חסר.
+ * - באנדרואיד ללא מפתח Google Maps ה-MapView הנייטיב קורס (קריסה נייטיב שלא
+ *   נתפסת ב-ErrorBoundary) → אם MAPS_AVAILABLE=false מציגים fallback מיד.
  */
 export class MapBoundary extends React.Component<
   { children: React.ReactNode; fallback: React.ReactNode },
@@ -16,6 +19,7 @@ export class MapBoundary extends React.Component<
     /* נבלע - ה-fallback כבר מוצג */
   }
   render() {
+    if (!MAPS_AVAILABLE) return this.props.fallback;
     return this.state.failed ? this.props.fallback : this.props.children;
   }
 }
