@@ -216,9 +216,9 @@ export default function AssignmentDetail() {
           </View>
         </Card>
 
-        {/* כרטיס התורם (בסגנון גט — תמונה/ראשי-תיבות, שם, מוניטין, דירוג, נקודת איסוף) */}
+        {/* כרטיס התורם (בסגנון גט — תמונה/ראשי-תיבות, שם, מוניטין, דירוג, נקודת איסוף). לחיצה → פרופיל התורם */}
         {donor ? (
-          <Card style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <Card onPress={() => router.push(`/user/${donor.id}` as any)} style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             {donor.photo_url ? (
               <Image source={{ uri: donor.photo_url }} style={{ width: 58, height: 58, borderRadius: 29 }} />
             ) : (
@@ -249,6 +249,7 @@ export default function AssignmentDetail() {
                 </View>
               ) : null}
             </View>
+            <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
           </Card>
         ) : null}
 

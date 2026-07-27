@@ -78,6 +78,7 @@ function AuthGate() {
         <Stack.Screen name="need/new" />
         <Stack.Screen name="offer/new" />
         <Stack.Screen name="assignment/[id]" />
+        <Stack.Screen name="user/[id]" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="admin" />
       </Stack>
