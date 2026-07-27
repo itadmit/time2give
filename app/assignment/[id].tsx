@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Alert, Linking, Pressable } from 'react-native';
+import { View, ScrollView, Alert, Linking, Pressable, Image } from 'react-native';
 import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,7 @@ import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
 import { revealPhone, advanceAssignment, submitRating, claimDelivery, releaseDelivery } from '../../src/lib/api';
-import { statusUI, type AssignmentStatus } from '../../src/lib/domain';
+import { statusUI, LEVEL_META, type AssignmentStatus, type ReputationLevel } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
 
@@ -21,10 +21,11 @@ type Assignment = {
   courier_id: string | null;
   recipient: { user_id: string } | null;
   need: { food_type: string; quantity: number; unit_label: string } | null;
-  offer: { food_type: string; quantity: number; unit_label: string } | null;
+  offer: { food_type: string; quantity: number; unit_label: string; origin_city: string | null } | null;
 };
 type Ev = { id: number; type: string; created_at: string; payload: any };
 type Contact = { role: string; name: string; phone: string };
+type Donor = { id: string; full_name: string | null; photo_url: string | null; reputation_level: ReputationLevel; rating_avg: number; rating_count: number; total_donations: number };
 
 const EVENT_LABEL: Record<string, string> = {
   need_created: 'הבקשה פורסמה',
@@ -81,16 +82,27 @@ export default function AssignmentDetail() {
   const [a, setA] = useState<Assignment | null>(null);
   const [events, setEvents] = useState<Ev[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [donor, setDonor] = useState<Donor | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('assignments')
-      .select('*, recipient:recipient_id(user_id), need:need_id(food_type,quantity,unit_label), offer:offer_id(food_type,quantity,unit_label)')
+      .select('*, recipient:recipient_id(user_id), need:need_id(food_type,quantity,unit_label), offer:offer_id(food_type,quantity,unit_label,origin_city)')
       .eq('id', id)
       .maybeSingle();
     setA(data as Assignment);
     const { data: ev } = await supabase.from('events').select('id,type,created_at,payload').eq('assignment_id', id).order('created_at');
     setEvents((ev as Ev[]) ?? []);
+    // פרטי התורם (view ציבורי — שם, תמונה, מוניטין, דירוג)
+    const donorId = (data as Assignment | null)?.donor_id;
+    if (donorId) {
+      const { data: dp } = await supabase
+        .from('profiles_public')
+        .select('id,full_name,photo_url,reputation_level,rating_avg,rating_count,total_donations')
+        .eq('id', donorId)
+        .maybeSingle();
+      setDonor((dp as Donor) ?? null);
+    }
   }, [id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -184,6 +196,7 @@ export default function AssignmentDetail() {
     profile?.roles?.includes('courier') ||
     profile?.roles?.includes('coordinator') ||
     profile?.roles?.includes('admin');
+  const dLevel = donor?.reputation_level ? LEVEL_META[donor.reputation_level] : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
@@ -202,6 +215,42 @@ export default function AssignmentDetail() {
             </View>
           </View>
         </Card>
+
+        {/* כרטיס התורם (בסגנון גט — תמונה/ראשי-תיבות, שם, מוניטין, דירוג, נקודת איסוף) */}
+        {donor ? (
+          <Card style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+            {donor.photo_url ? (
+              <Image source={{ uri: donor.photo_url }} style={{ width: 58, height: 58, borderRadius: 29 }} />
+            ) : (
+              <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+                <Txt variant="h1" weight="extrabold" color={colors.brand700}>{donor.full_name?.trim()?.charAt(0) ?? '?'}</Txt>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Txt variant="caption" color={colors.textMuted}>התורם</Txt>
+              <Txt variant="h2" weight="bold">{donor.full_name ?? 'תורם'}</Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3 }}>
+                {dLevel ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.brand50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill }}>
+                    <Ionicons name="shield-checkmark" size={11} color={colors.brand700} />
+                    <Txt variant="caption" weight="bold" color={colors.brand700}>Level {dLevel.n} · {dLevel.label}</Txt>
+                  </View>
+                ) : null}
+                {donor.rating_count > 0 ? (
+                  <Txt variant="caption" weight="bold" color={colors.warning}>⭐ {donor.rating_avg} ({donor.rating_count})</Txt>
+                ) : (
+                  <Txt variant="caption" color={colors.textMuted}>תורם חדש</Txt>
+                )}
+              </View>
+              {a.offer?.origin_city ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                  <Ionicons name="location" size={13} color={colors.secondary} />
+                  <Txt variant="caption" color={colors.textMuted}>נקודת איסוף: {a.offer.origin_city}</Txt>
+                </View>
+              ) : null}
+            </View>
+          </Card>
+        ) : null}
 
         {/* Actions */}
         <View style={{ height: spacing.lg }} />
