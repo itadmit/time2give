@@ -106,6 +106,11 @@ export async function claimDelivery(assignment_id: string) {
   return supabase.rpc('claim_delivery', { p_assignment_id: assignment_id });
 }
 
+/** נהג מבטל משלוח שלקח → חוזר ל"ממתין לשינוע" (לפני איסוף בלבד) */
+export async function releaseDelivery(assignment_id: string) {
+  return supabase.rpc('release_delivery', { p_assignment_id: assignment_id });
+}
+
 /** מועמדי שינוע מדורגים לפי כיסוי אזור / זמינות / מוניטין */
 export async function couriersForAssignment(assignment_id: string) {
   return supabase.rpc('couriers_for_assignment', { p_assignment_id: assignment_id });

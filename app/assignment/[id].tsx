@@ -6,7 +6,7 @@ import { Header, Txt, Card, Button, StatusBadge, Divider } from '../../src/compo
 import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
-import { revealPhone, advanceAssignment, submitRating, claimDelivery } from '../../src/lib/api';
+import { revealPhone, advanceAssignment, submitRating, claimDelivery, releaseDelivery } from '../../src/lib/api';
 import { statusUI, type AssignmentStatus } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
@@ -113,6 +113,22 @@ export default function AssignmentDetail() {
     await load();
   };
 
+  // נהג מבטל את המשלוח שלקח → חוזר ל"ממתין לשינוע" ונהג אחר יוכל לקחת
+  const doRelease = () => {
+    Alert.alert('ביטול המשלוח', 'המשלוח יחזור להמתנה לשינוע ונהג אחר יוכל לקחת אותו. להמשיך?', [
+      { text: 'לא', style: 'cancel' },
+      {
+        text: 'כן, בטל',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await releaseDelivery(id!);
+          if (error) return Alert.alert('שגיאה', error.message);
+          await load();
+        },
+      },
+    ]);
+  };
+
   const onNext = (action: NextAction) => {
     if (action.confirm) {
       Alert.alert(action.confirm.title, action.confirm.message, [
@@ -202,6 +218,10 @@ export default function AssignmentDetail() {
               {next.hint}
             </Txt>
           </>
+        ) : null}
+        {/* נהג שלקח את המשלוח (לפני איסוף) יכול לבטל → המשלוח חוזר להמתנה לשינוע */}
+        {a.status === 'courier_assigned' && a.courier_id === profile?.id ? (
+          <Button title="בטל את המשלוח" variant="ghost" icon="close-circle" onPress={doRelease} style={{ marginTop: spacing.md }} />
         ) : null}
         {a.status === 'confirmed' ? <Button title="דרג את הצד השני" icon="star" onPress={rate} /> : null}
 
