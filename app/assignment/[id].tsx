@@ -23,7 +23,7 @@ type Assignment = {
   need: { food_type: string; quantity: number; unit_label: string } | null;
   offer: { food_type: string; quantity: number; unit_label: string } | null;
 };
-type Ev = { id: number; type: string; created_at: string };
+type Ev = { id: number; type: string; created_at: string; payload: any };
 type Contact = { role: string; name: string; phone: string };
 
 const EVENT_LABEL: Record<string, string> = {
@@ -89,7 +89,7 @@ export default function AssignmentDetail() {
       .eq('id', id)
       .maybeSingle();
     setA(data as Assignment);
-    const { data: ev } = await supabase.from('events').select('id,type,created_at').eq('assignment_id', id).order('created_at');
+    const { data: ev } = await supabase.from('events').select('id,type,created_at,payload').eq('assignment_id', id).order('created_at');
     setEvents((ev as Ev[]) ?? []);
   }, [id]);
 
@@ -278,7 +278,7 @@ export default function AssignmentDetail() {
             </View>
             <View style={{ flex: 1, paddingBottom: spacing.md }}>
               <Txt variant="small" weight="medium">
-                {EVENT_LABEL[e.type] ?? e.type}
+                {e.type === 'transport_requested' && e.payload?.released ? 'המשלוח בוטל ע"י הנהג — חזר להמתנה לשינוע' : EVENT_LABEL[e.type] ?? e.type}
               </Txt>
               <Txt variant="caption" color={colors.textMuted}>
                 {new Date(e.created_at).toLocaleString('he-IL')}
