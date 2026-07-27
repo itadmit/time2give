@@ -21,10 +21,16 @@ type PublicUser = {
   total_deliveries: number;
   units_served: number;
 };
+type Review = { id: string; score: number; comment: string | null; created_at: string; rater_name: string | null };
+type HistItem = { id: string; food_type: string; quantity: number; unit_label: string; created_at: string };
+
+const heDate = (s: string) => new Date(s).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [u, setU] = useState<PublicUser | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [history, setHistory] = useState<HistItem[]>([]);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -33,6 +39,21 @@ export default function PublicProfile() {
       .eq('id', id)
       .maybeSingle();
     setU((data as PublicUser) ?? null);
+    const { data: rv } = await supabase
+      .from('public_reviews')
+      .select('id,score,comment,created_at,rater_name')
+      .eq('ratee_id', id)
+      .order('created_at', { ascending: false })
+      .limit(12);
+    setReviews((rv as Review[]) ?? []);
+    const { data: hist } = await supabase
+      .from('offers')
+      .select('id,food_type,quantity,unit_label,created_at')
+      .eq('donor_id', id)
+      .eq('status', 'fulfilled')
+      .order('created_at', { ascending: false })
+      .limit(12);
+    setHistory((hist as HistItem[]) ?? []);
   }, [id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -78,6 +99,56 @@ export default function PublicProfile() {
               <StatBlock value={u.total_deliveries} label="משלוחים" />
               <StatBlock value={u.units_served} label="יחידות" />
             </Card>
+
+            {/* חוות דעת */}
+            {reviews.length > 0 ? (
+              <>
+                <View style={{ height: spacing.lg }} />
+                <Card>
+                  <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
+                    חוות דעת ({u.rating_count})
+                  </Txt>
+                  {reviews.map((rv, i) => (
+                    <View key={rv.id} style={{ paddingVertical: spacing.md, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Txt weight="bold">{rv.rater_name ?? 'משתמש'}</Txt>
+                        <Txt variant="caption" color={colors.warning}>{'⭐'.repeat(rv.score)}</Txt>
+                      </View>
+                      {rv.comment ? <Txt variant="small" color={colors.text} style={{ marginTop: 2 }}>{rv.comment}</Txt> : null}
+                      <Txt variant="caption" color={colors.textMuted} style={{ marginTop: 2 }}>{heDate(rv.created_at)}</Txt>
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
+
+            {/* היסטוריית תרומות */}
+            {history.length > 0 ? (
+              <>
+                <View style={{ height: spacing.lg }} />
+                <Card>
+                  <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
+                    היסטוריית תרומות
+                  </Txt>
+                  {history.map((h, i) => (
+                    <View key={h.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: spacing.md, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
+                      <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#E7F6EE', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="gift" size={18} color={colors.secondary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Txt weight="bold" variant="small">{h.quantity} {h.unit_label} · {h.food_type}</Txt>
+                        <Txt variant="caption" color={colors.textMuted}>{heDate(h.created_at)}</Txt>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                        <Txt variant="caption" weight="bold" color={colors.success}>הושלמה</Txt>
+                      </View>
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
+            <View style={{ height: spacing.xl }} />
           </>
         ) : (
           <View style={{ alignItems: 'center', marginTop: 80, gap: spacing.md }}>
