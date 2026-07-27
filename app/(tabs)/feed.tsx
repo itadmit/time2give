@@ -11,7 +11,7 @@ import { OffersMap, type MapOffer } from '../../src/components/OffersMap';
 import { useAuth } from '../../src/context/AuthContext';
 import { useNotifications } from '../../src/context/NotificationsContext';
 import { ROLE_LABELS, LEVEL_META, RECIPIENT_TYPE_LABELS, type ReputationLevel, type RecipientType } from '../../src/lib/domain';
-import { claimOffer, commitToNeed, claimDelivery } from '../../src/lib/api';
+import { claimOffer, commitToNeed } from '../../src/lib/api';
 import { regionLabel, REGION_CENTERS, type Region } from '../../src/lib/regions';
 import { haversineKm, formatKm } from '../../src/lib/geo';
 import { supabase } from '../../src/lib/supabase';
@@ -204,14 +204,6 @@ export default function Feed() {
       { text: 'לא, צריך שינוע', onPress: () => doCommit(n.id, false) },
     ]);
   };
-  const grab = async (assignmentId: string) => {
-    if (isGuest) return goLogin();
-    const { error } = await claimDelivery(assignmentId);
-    if (error) return Alert.alert('שגיאה', error.message);
-    setSelectedId(null); await load();
-    router.push(`/assignment/${assignmentId}`);
-  };
-
   // בניית פריטים למצב הנוכחי, ממוינים לפי הקרוב
   let items: Item[] = [];
   if (appMode === 'receive') {
@@ -244,7 +236,7 @@ export default function Feed() {
         id: d.id, foodType: info?.food_type ?? 'תרומה', quantity: info?.quantity ?? 0, unitLabel: info?.unit_label ?? '',
         subtitle: `אזור ${regionLabel(d.general_destination)}${d.offer?.origin_city ? ' · ' + d.offer.origin_city : ''}`,
         lat, lng, km: dist(lat, lng), needsTransport: true,
-        actLabel: 'אני לוקח את המשלוח', act: () => grab(d.id),
+        actLabel: 'צפה בנסיעה', act: () => router.push(`/assignment/${d.id}` as any),
       };
     });
   }
@@ -346,7 +338,7 @@ export default function Feed() {
         {viewMode === 'map' ? (
           <View style={{ flex: 1 }}>
             <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, styles.mapFallback]}><Ionicons name="map-outline" size={40} color={colors.brand500} /><Txt color={colors.textMuted} style={{ marginTop: 8 }}>המפה תיטען בקרוב</Txt></View>}>
-              <OffersMap key={appMode} offers={markers} variant="fullscreen" mapType="standard" interactive pinColor={accent} onSelect={setSelectedId} />
+              <OffersMap key={appMode} offers={markers} variant="fullscreen" mapType="standard" interactive pinColor={accent} onSelect={(mid) => (appMode === 'drive' ? router.push(`/assignment/${mid}` as any) : setSelectedId(mid))} />
             </MapBoundary>
             {selected ? (
               <View style={[styles.detailCard, { paddingBottom: insets.bottom + spacing.md }]}>
