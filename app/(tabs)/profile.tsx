@@ -6,14 +6,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, StatBlock, Divider, Field } from '../../src/components/ui';
 import { RegionPicker } from '../../src/components/RegionPicker';
 import { useAuth } from '../../src/context/AuthContext';
-import { setMyProfile } from '../../src/lib/api';
+import { setMyProfile, upsertRecipientProfile } from '../../src/lib/api';
 import { getOtaDiagnostics } from '../../src/lib/otaDiagnostics';
 import { supabase } from '../../src/lib/supabase';
-import { ROLE_LABELS, LEVEL_META } from '../../src/lib/domain';
+import { ROLE_LABELS, RECIPIENT_TYPE_LABELS, LEVEL_META, type UserRole, type RecipientType } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
 
 type Badge = { id: string; badge_type: string };
+
+const ROLE_OPTIONS: { role: UserRole; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
+  { role: 'donor', icon: 'gift', desc: 'מכין ומספק מזון' },
+  { role: 'recipient', icon: 'shield-checkmark', desc: 'מבקש או מאשר תרומות' },
+  { role: 'courier', icon: 'car', desc: 'מוביל תרומות למבקשים' },
+];
+const RECIPIENT_TYPES: RecipientType[] = ['military_unit', 'hospital', 'elderly', 'family', 'ngo', 'rescue', 'evacuee', 'emergency'];
 
 export default function Profile() {
   const { profile, session, signOut, refreshProfile } = useAuth();
@@ -22,6 +29,9 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [regions, setRegions] = useState<Region[]>([]);
+  const [editRoles, setEditRoles] = useState<UserRole[]>([]);
+  const [recipientType, setRecipientType] = useState<RecipientType>('military_unit');
+  const [recipientRegion, setRecipientRegion] = useState<Region | null>(null);
   const [saving, setSaving] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   // מזהה אם עדכון כבר הורד ומחכה (יוחל בפתיחה הבאה — לא קוראים reloadAsync כי הוא מקריס עם המפה)
@@ -66,6 +76,16 @@ export default function Profile() {
     if (!profile?.id) return;
     const { data } = await supabase.from('user_badges').select('id,badge_type').eq('user_id', profile.id);
     setBadges((data as Badge[]) ?? []);
+    // פרופיל-מקבל (אם קיים) — כדי לטעון מראש סוג המקבל והאזור בעריכה
+    const { data: rp } = await supabase
+      .from('recipient_profiles')
+      .select('recipient_type, region')
+      .eq('user_id', profile.id)
+      .maybeSingle();
+    if (rp) {
+      setRecipientType((rp as any).recipient_type);
+      setRecipientRegion((rp as any).region);
+    }
   }, [profile?.id]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -98,23 +118,41 @@ export default function Profile() {
   const verified = profile.verification_status === 'approved';
   const isRecipient = profile.roles.includes('recipient');
 
+  // נגזרות מצב-עריכה (מבוססות על התפקידים שנבחרים כרגע בעריכה)
+  const editNeedsCoverage = editRoles.includes('donor') || editRoles.includes('courier');
+  const editIsRecipient = editRoles.includes('recipient');
+  const toggleEditRole = (r: UserRole) =>
+    setEditRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
+
   const startEdit = () => {
     setName(profile.full_name ?? '');
-    setRegions(profile.service_regions ?? []);
+    setEditRoles(profile.roles);
+    setRegions(profile.service_regions?.length ? profile.service_regions : recipientRegion ? [recipientRegion] : []);
     setEditing(true);
   };
 
   const saveEdit = async () => {
     if (!name.trim()) return Alert.alert('חסר שם', 'הזן שם מלא');
-    if (regions.length === 0) return Alert.alert('בחר אזורים', isRecipient ? 'בחר את האזור שלך' : 'בחר לפחות אזור אחד');
+    if (editRoles.length === 0) return Alert.alert('בחר תפקיד', 'בחר לפחות תפקיד אחד');
+    if (regions.length === 0) return Alert.alert('בחר אזור', editNeedsCoverage ? 'בחר לפחות אזור אחד' : 'בחר את האזור שלך');
     setSaving(true);
     const { error } = await setMyProfile({
       full_name: name.trim(),
-      roles: profile.roles,
-      service_regions: regions,
+      roles: editRoles,
+      service_regions: editNeedsCoverage ? regions : [],
     });
+    if (error) {
+      setSaving(false);
+      return Alert.alert('שגיאה', error.message);
+    }
+    if (editIsRecipient) {
+      const { error: rErr } = await upsertRecipientProfile({ recipient_type: recipientType, region: regions[0] });
+      if (rErr) {
+        setSaving(false);
+        return Alert.alert('שגיאה', rErr.message);
+      }
+    }
     setSaving(false);
-    if (error) return Alert.alert('שגיאה', error.message);
     await refreshProfile();
     setEditing(false);
   };
@@ -180,10 +218,69 @@ export default function Profile() {
           <>
             <View style={{ height: spacing.lg }} />
             <Card>
-              <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 8 }}>
-                {isRecipient ? 'האזור שלי' : 'אזורים שאני מכסה'}
+              <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 2 }}>
+                התפקידים שלי
               </Txt>
-              <RegionPicker value={regions} onChange={setRegions} single={isRecipient} />
+              <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: 10 }}>
+                אפשר לבחור יותר מאחד
+              </Txt>
+              <View style={{ gap: 8 }}>
+                {ROLE_OPTIONS.map((opt) => {
+                  const active = editRoles.includes(opt.role);
+                  return (
+                    <Pressable
+                      key={opt.role}
+                      onPress={() => toggleEditRole(opt.role)}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 12,
+                        borderWidth: 2, borderColor: active ? colors.brand700 : colors.border,
+                        borderRadius: radius.md, padding: spacing.md,
+                      }}
+                    >
+                      <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: active ? colors.brand700 : colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name={opt.icon} size={20} color={active ? colors.white : colors.brand700} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Txt weight="bold">{ROLE_LABELS[opt.role]}</Txt>
+                        <Txt variant="caption" color={colors.textMuted}>{opt.desc}</Txt>
+                      </View>
+                      {active ? <Ionicons name="checkmark-circle" size={22} color={colors.brand700} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+
+            {editIsRecipient ? (
+              <>
+                <View style={{ height: spacing.lg }} />
+                <Card>
+                  <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 10 }}>
+                    סוג המקבל
+                  </Txt>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {RECIPIENT_TYPES.map((t) => (
+                      <Pressable
+                        key={t}
+                        onPress={() => setRecipientType(t)}
+                        style={{ paddingHorizontal: spacing.lg, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: recipientType === t ? colors.brand900 : colors.brand50 }}
+                      >
+                        <Txt variant="small" weight="bold" color={recipientType === t ? colors.white : colors.brand700}>
+                          {RECIPIENT_TYPE_LABELS[t]}
+                        </Txt>
+                      </Pressable>
+                    ))}
+                  </View>
+                </Card>
+              </>
+            ) : null}
+
+            <View style={{ height: spacing.lg }} />
+            <Card>
+              <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 8 }}>
+                {editNeedsCoverage ? 'אזורים שאני מכסה' : 'האזור שלי'}
+              </Txt>
+              <RegionPicker value={regions} onChange={setRegions} single={editIsRecipient && !editNeedsCoverage} />
             </Card>
           </>
         ) : profile.service_regions.length > 0 ? (

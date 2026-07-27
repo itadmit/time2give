@@ -23,7 +23,7 @@ const RECIPIENT_TYPES: RecipientType[] = ['military_unit', 'hospital', 'elderly'
 export default function Onboarding() {
   const { refreshProfile, signOut } = useAuth();
   const [name, setName] = useState('');
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [roles, setRoles] = useState<UserRole[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [recipientType, setRecipientType] = useState<RecipientType>('military_unit');
   const [loading, setLoading] = useState(false);
@@ -31,25 +31,26 @@ export default function Onboarding() {
   // תפקיד שנבחר בויזארד הפתיחה — נטען מראש
   useEffect(() => {
     AsyncStorage.getItem(PENDING_ROLE_KEY).then((r) => {
-      if (r === 'donor' || r === 'recipient' || r === 'courier') setRole(r as UserRole);
+      if (r === 'donor' || r === 'recipient' || r === 'courier') setRoles([r as UserRole]);
       AsyncStorage.removeItem(PENDING_ROLE_KEY);
     });
   }, []);
 
-  const isRecipient = role === 'recipient';
+  const isRecipient = roles.includes('recipient');
   // תורם ונהג מתנדב בוחרים אזורים שהם יכולים להגיע אליהם
-  const needsCoverage = role === 'donor' || role === 'courier';
+  const needsCoverage = roles.includes('donor') || roles.includes('courier');
+  const toggleRole = (r: UserRole) =>
+    setRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
 
   const save = async () => {
     if (!name.trim()) return Alert.alert('חסר שם', 'הזן שם מלא');
-    if (!role) return Alert.alert('בחר תפקיד', 'יש לבחור תפקיד אחד');
-    if (needsCoverage && regions.length === 0) return Alert.alert('בחר אזורים', 'בחר לפחות אזור אחד שאתה מכסה');
-    if (isRecipient && regions.length !== 1) return Alert.alert('בחר אזור', 'בחר את האזור שלך');
+    if (roles.length === 0) return Alert.alert('בחר תפקיד', 'בחר לפחות תפקיד אחד');
+    if (regions.length === 0) return Alert.alert('בחר אזור', needsCoverage ? 'בחר לפחות אזור אחד' : 'בחר את האזור שלך');
 
     setLoading(true);
     const { error } = await setMyProfile({
       full_name: name.trim(),
-      roles: [role],
+      roles,
       service_regions: needsCoverage ? regions : [],
     });
     if (error) {
@@ -73,14 +74,17 @@ export default function Onboarding() {
       <Screen scroll>
         <Field label="שם מלא" value={name} onChangeText={setName} placeholder="לדוגמא: ישראל ישראלי" autoFocus />
 
-        <Txt variant="small" weight="medium" color={colors.textMuted} style={{ marginBottom: 8 }}>
-          מה התפקיד שלך?
+        <Txt variant="small" weight="medium" color={colors.textMuted} style={{ marginBottom: 2 }}>
+          מה התפקידים שלך?
+        </Txt>
+        <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: 8 }}>
+          אפשר לבחור יותר מאחד (למשל תורם וגם נהג מתנדב)
         </Txt>
         <View style={{ gap: 10, marginBottom: spacing.xl }}>
           {ROLE_OPTIONS.map((opt) => {
-            const active = role === opt.role;
+            const active = roles.includes(opt.role);
             return (
-              <Pressable key={opt.role} onPress={() => !opt.disabled && setRole(opt.role)} disabled={opt.disabled}>
+              <Pressable key={opt.role} onPress={() => !opt.disabled && toggleRole(opt.role)} disabled={opt.disabled}>
                 <Card style={{ borderWidth: 2, borderColor: active ? colors.brand700 : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 12, opacity: opt.disabled ? 0.6 : 1 }}>
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: opt.disabled ? colors.border : active ? colors.brand700 : colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name={opt.disabled ? 'lock-closed' : opt.icon} size={22} color={opt.disabled ? colors.textMuted : active ? colors.white : colors.brand700} />
@@ -123,9 +127,9 @@ export default function Onboarding() {
           <>
             <Divider />
             <Txt variant="small" weight="medium" color={colors.textMuted} style={{ marginBottom: 8 }}>
-              {isRecipient ? 'באיזה אזור אתה?' : 'לאילו אזורים אתה יכול להגיע?'}
+              {needsCoverage ? 'לאילו אזורים אתה יכול להגיע?' : 'באיזה אזור אתה?'}
             </Txt>
-            <RegionPicker value={regions} onChange={setRegions} single={isRecipient} />
+            <RegionPicker value={regions} onChange={setRegions} single={isRecipient && !needsCoverage} />
             <View style={{ height: spacing.xl }} />
           </>
         )}
