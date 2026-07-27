@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Alert, Pressable } from 'react-native';
+import { View, Alert, Pressable, Modal } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, Header, Field, Button, Txt, Pill } from '../../src/components/ui';
@@ -54,6 +54,7 @@ export default function NewOffer() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [foundAddress, setFoundAddress] = useState<string | null>(null); // כתובת שנמצאה → מודל אישור
 
   const useMyLocation = async () => {
     try {
@@ -62,8 +63,11 @@ export default function NewOffer() {
       const pos = await Location.getCurrentPositionAsync({});
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       const geo = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-      if (geo[0]?.city) setCity(geo[0].city);
-      Alert.alert('מיקום נשמר ✓', 'מיקום המוצא יוצג על המפה');
+      const g = geo[0];
+      if (g?.city) setCity(g.city);
+      const parts = [g?.street, g?.city, g?.region].filter(Boolean) as string[];
+      const addr = Array.from(new Set(parts)).join(', ') || `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+      setFoundAddress(addr);
     } catch {
       Alert.alert('שגיאה', 'לא ניתן לקבל מיקום');
     }
@@ -157,6 +161,28 @@ export default function NewOffer() {
 
         <Button title="פרסם תרומה" icon="gift" onPress={submit} loading={loading} style={{ marginTop: spacing.xl }} />
       </Screen>
+
+      {/* מודל אישור מיקום — מחליף את ה-Alert, מיושר לימין ומציג את הכתובת שנמצאה */}
+      <Modal visible={!!foundAddress} transparent animationType="fade" onRequestClose={() => setFoundAddress(null)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(11,31,51,0.5)', alignItems: 'center', justifyContent: 'center', padding: spacing.xl }} onPress={() => setFoundAddress(null)}>
+          <Pressable style={{ width: '100%', backgroundColor: colors.white, borderRadius: 24, padding: spacing.xl }} onPress={(e) => e.stopPropagation()}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: spacing.md }}>
+              <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#E7F6EE', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="location" size={26} color={colors.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Txt variant="h2" weight="extrabold">המיקום נשמר ✓</Txt>
+                <Txt variant="caption" color={colors.textMuted}>יוצג למקבלים על המפה</Txt>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
+              <Ionicons name="navigate" size={18} color={colors.brand700} />
+              <Txt weight="bold" style={{ flex: 1 }}>{foundAddress}</Txt>
+            </View>
+            <Button title="מעולה" icon="checkmark" onPress={() => setFoundAddress(null)} style={{ marginTop: spacing.lg }} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }

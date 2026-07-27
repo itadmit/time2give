@@ -49,7 +49,14 @@ export function Screen({ children, scroll, style }: { children: React.ReactNode;
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }} edges={['bottom']}>
       {scroll ? (
         // keyboardShouldPersistTaps="handled" — לחיצה על כפתור כשהמקלדת פתוחה נקלטת מיד (בלי לחיצה כפולה)
-        <ScrollView contentContainerStyle={{ padding: spacing.lg }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        // automaticallyAdjustKeyboardInsets — המקלדת דוחפת את התוכן למעלה במקום להסתיר שדות (למשל "הערות")
+        <ScrollView
+          contentContainerStyle={{ padding: spacing.lg }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+          contentInsetAdjustmentBehavior="always"
+        >
           {children}
         </ScrollView>
       ) : (
