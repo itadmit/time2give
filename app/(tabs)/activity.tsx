@@ -51,14 +51,22 @@ export default function Activity() {
     setRefreshing(false);
   };
 
-  // הנהג המתנדב תופס את המשלוח בעצמו — במקום שיבוץ ידני של רכז
-  const take = async (assignmentId: string) => {
-    setTaking(assignmentId);
-    const { error } = await claimDelivery(assignmentId);
-    setTaking(null);
-    if (error) return appAlert('שגיאה', error.message);
-    await load();
-    router.push(`/assignment/${assignmentId}`);
+  // הנהג המתנדב תופס את המשלוח בעצמו — עם אימות לפני שינוי הסטטוס
+  const take = (assignmentId: string) => {
+    appAlert('לקחת את המשלוח?', 'אתם מתחייבים לאסוף מהתורם ולמסור למבקש. את הכתובת המדויקת תתאמו בטלפון.', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'כן, אני לוקח',
+        onPress: async () => {
+          setTaking(assignmentId);
+          const { error } = await claimDelivery(assignmentId);
+          setTaking(null);
+          if (error) return appAlert('שגיאה', error.message);
+          await load();
+          router.push(`/assignment/${assignmentId}`);
+        },
+      },
+    ]);
   };
 
   const waiting = rows.filter((r) => r.status === 'waiting_courier');

@@ -107,11 +107,19 @@ export default function AssignmentDetail() {
     await load();
   };
 
-  // נהג מתנדב תופס משלוח פתוח ישירות ממסך השיבוץ
-  const takeDelivery = async () => {
-    const { error } = await claimDelivery(id!);
-    if (error) return appAlert('שגיאה', error.message);
-    await load();
+  // נהג מתנדב תופס משלוח פתוח — עם אימות לפני שינוי הסטטוס
+  const takeDelivery = () => {
+    appAlert('לקחת את המשלוח?', 'אתם מתחייבים לאסוף מהתורם ולמסור למבקש. את הכתובת המדויקת תתאמו בטלפון.', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'כן, אני לוקח',
+        onPress: async () => {
+          const { error } = await claimDelivery(id!);
+          if (error) return appAlert('שגיאה', error.message);
+          await load();
+        },
+      },
+    ]);
   };
 
   // נהג מבטל את המשלוח שלקח → חוזר ל"ממתין לשינוע" ונהג אחר יוכל לקחת
@@ -130,15 +138,16 @@ export default function AssignmentDetail() {
     ]);
   };
 
+  // אימות תמיד לפני שינוי סטטוס
   const onNext = (action: NextAction) => {
-    if (action.confirm) {
-      appAlert(action.confirm.title, action.confirm.message, [
+    appAlert(
+      action.confirm?.title ?? 'לאשר את הפעולה?',
+      action.confirm?.message ?? `${action.label} — האם אתם בטוחים?`,
+      [
         { text: 'לא עכשיו', style: 'cancel' },
         { text: 'כן, בטוח', onPress: () => advance(action.status) },
-      ]);
-    } else {
-      advance(action.status);
-    }
+      ],
+    );
   };
 
   const rate = () => {
