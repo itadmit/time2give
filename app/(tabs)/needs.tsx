@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, RefreshControl, Alert } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, Pill, EmptyState } from '../../src/components/ui';
@@ -48,7 +49,7 @@ export default function Needs() {
   };
 
   const commit = (need: NeedRow) => {
-    Alert.alert(
+    appAlert(
       'התחייבות לבקשה',
       `${need.quantity} ${need.unit_label} - ${need.food_type}\nאזור ${regionLabel(need.region)}\n\nהאם תבצע את השינוע בעצמך?`,
       [
@@ -61,7 +62,7 @@ export default function Needs() {
 
   const doCommit = async (needId: string, selfTransport: boolean) => {
     const { data, error } = await commitToNeed(needId, selfTransport);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     await load();
     if (data) router.push(`/assignment/${data}`);
   };

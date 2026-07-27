@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, RefreshControl, Alert } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, EmptyState } from '../../src/components/ui';
@@ -51,7 +52,7 @@ export default function OffersScreen() {
   };
 
   const claim = (offer: OfferRow) => {
-    Alert.alert(
+    appAlert(
       'בחירת תרומה',
       `${offer.quantity} ${offer.unit_label} · ${offer.food_type}\nמאת ${offer.donor_name}\n\nכיצד תרצה לקבל?`,
       [
@@ -64,7 +65,7 @@ export default function OffersScreen() {
 
   const doClaim = async (offerId: string, needTransport: boolean) => {
     const { data, error } = await claimOffer(offerId, needTransport);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     await load();
     if (data) router.push(`/assignment/${data}`);
   };

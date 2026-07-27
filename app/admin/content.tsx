@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Alert, RefreshControl, Pressable } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, EmptyState, Divider } from '../../src/components/ui';
@@ -52,14 +53,14 @@ export default function AdminContent() {
   };
 
   const confirmDelete = (label: string, fn: () => Promise<{ error: { message: string } | null }>) => {
-    Alert.alert('מחיקה', `למחוק ${label}?`, [
+    appAlert('מחיקה', `למחוק ${label}?`, [
       { text: 'ביטול', style: 'cancel' },
       {
         text: 'מחק',
         style: 'destructive',
         onPress: async () => {
           const { error } = await fn();
-          if (error) return Alert.alert('שגיאה', error.message);
+          if (error) return appAlert('שגיאה', error.message);
           await load();
         },
       },

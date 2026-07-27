@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Alert, Pressable, Modal } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen, Header, Field, Button, Txt, Pill } from '../../src/components/ui';
@@ -59,7 +60,7 @@ export default function NewOffer() {
   const useMyLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return Alert.alert('אין הרשאה', 'לא ניתנה הרשאת מיקום');
+      if (status !== 'granted') return appAlert('אין הרשאה', 'לא ניתנה הרשאת מיקום');
       const pos = await Location.getCurrentPositionAsync({});
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       const geo = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
@@ -69,17 +70,17 @@ export default function NewOffer() {
       const addr = Array.from(new Set(parts)).join(', ') || `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
       setFoundAddress(addr);
     } catch {
-      Alert.alert('שגיאה', 'לא ניתן לקבל מיקום');
+      appAlert('שגיאה', 'לא ניתן לקבל מיקום');
     }
   };
 
   const submit = async () => {
     const qty = parseInt(quantity, 10);
-    if (!foodType.trim()) return Alert.alert('מה תורמים?', 'בחרו או כתבו סוג מזון');
-    if (!qty || qty <= 0) return Alert.alert('כמה?', 'מלאו כמות (מספר גדול מ-0)');
-    if (selfCourier === null) return Alert.alert('שינוע', 'בחרו אם תוכלו לשנע את התרומה בעצמכם');
+    if (!foodType.trim()) return appAlert('מה תורמים?', 'בחרו או כתבו סוג מזון');
+    if (!qty || qty <= 0) return appAlert('כמה?', 'מלאו כמות (מספר גדול מ-0)');
+    if (selfCourier === null) return appAlert('שינוע', 'בחרו אם תוכלו לשנע את התרומה בעצמכם');
     if (regions.length === 0) {
-      return Alert.alert('בחרו אזור', selfCourier ? 'לאילו אזורים תוכלו להגיע?' : 'באיזה אזור נמצאת התרומה?');
+      return appAlert('בחרו אזור', selfCourier ? 'לאילו אזורים תוכלו להגיע?' : 'באיזה אזור נמצאת התרומה?');
     }
 
     setLoading(true);
@@ -97,8 +98,8 @@ export default function NewOffer() {
       donor_is_courier: selfCourier,
     });
     setLoading(false);
-    if (error) return Alert.alert('שגיאה', error.message);
-    Alert.alert('התרומה פורסמה 🎉', 'התרומה מופיעה כעת למקבלים באזור', [{ text: 'מעולה', onPress: () => safeBack() }]);
+    if (error) return appAlert('שגיאה', error.message);
+    appAlert('התרומה פורסמה 🎉', 'התרומה מופיעה כעת למקבלים באזור', [{ text: 'מעולה', onPress: () => safeBack() }]);
   };
 
   return (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Alert, Pressable } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -30,14 +31,14 @@ export default function PhoneScreen() {
     setDemoEmail(email);
     const { error } = await signInDemo(email, DEMO_PASSWORD);
     setDemoEmail(null);
-    if (error) Alert.alert('כניסת דמו נכשלה', error);
+    if (error) appAlert('כניסת דמו נכשלה', error);
     // AuthGate ינווט אוטומטית
   };
 
   const submit = async () => {
     const e164 = toE164(phone);
     if (!e164) {
-      Alert.alert('מספר לא תקין', 'הזן מספר טלפון ישראלי תקין, למשל 050-1234567');
+      appAlert('מספר לא תקין', 'הזן מספר טלפון ישראלי תקין, למשל 050-1234567');
       return;
     }
 
@@ -47,7 +48,7 @@ export default function PhoneScreen() {
       setLoading(true);
       const { error } = await signInDemo(demo.email, DEMO_PASSWORD);
       setLoading(false);
-      if (error) Alert.alert('כניסת בדיקה נכשלה', error);
+      if (error) appAlert('כניסת בדיקה נכשלה', error);
       return; // בלי OTP
     }
 
@@ -55,7 +56,7 @@ export default function PhoneScreen() {
     const { error } = await signInWithPhone(e164);
     setLoading(false);
     if (error) {
-      Alert.alert('שגיאה בשליחת קוד', error);
+      appAlert('שגיאה בשליחת קוד', error);
       return;
     }
     router.push({ pathname: '/(auth)/otp', params: { phone: e164 } });

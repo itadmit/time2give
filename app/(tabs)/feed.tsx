@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Pressable, StyleSheet, Alert, Animated, Easing, ScrollView } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -178,13 +179,13 @@ export default function Feed() {
   // פעולות
   const doClaim = async (offerId: string, needTransport: boolean) => {
     const { data, error } = await claimOffer(offerId, needTransport);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     setSelectedId(null); await load();
     if (data) router.push(`/assignment/${data}`);
   };
   const claim = (o: OfferRow) => {
     if (isGuest) return goLogin();
-    Alert.alert('בחירת תרומה', `${o.quantity} ${o.unit_label} · ${o.food_type}\nמאת ${o.donor_name}\n\nכיצד תרצה לקבל?`, [
+    appAlert('בחירת תרומה', `${o.quantity} ${o.unit_label} · ${o.food_type}\nמאת ${o.donor_name}\n\nכיצד תרצה לקבל?`, [
       { text: 'ביטול', style: 'cancel' },
       { text: 'איסוף עצמאי', onPress: () => doClaim(o.id, false) },
       { text: 'בקשת שינוע', onPress: () => doClaim(o.id, true) },
@@ -192,13 +193,13 @@ export default function Feed() {
   };
   const doCommit = async (needId: string, selfTransport: boolean) => {
     const { data, error } = await commitToNeed(needId, selfTransport);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     setSelectedId(null); await load();
     if (data) router.push(`/assignment/${data}`);
   };
   const commit = (n: NeedRow) => {
     if (isGuest) return goLogin();
-    Alert.alert('התחייבות לבקשה', `${n.quantity} ${n.unit_label} · ${n.food_type}\nאזור ${regionLabel(n.region)}\n\nהאם תבצע את השינוע בעצמך?`, [
+    appAlert('התחייבות לבקשה', `${n.quantity} ${n.unit_label} · ${n.food_type}\nאזור ${regionLabel(n.region)}\n\nהאם תבצע את השינוע בעצמך?`, [
       { text: 'ביטול', style: 'cancel' },
       { text: 'כן, אני מוביל', onPress: () => doCommit(n.id, true) },
       { text: 'לא, צריך שינוע', onPress: () => doCommit(n.id, false) },

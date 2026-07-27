@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Pressable, Alert } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Screen, Txt, Field, Button, Header, Card, Divider } from '../../src/components/ui';
@@ -43,9 +44,9 @@ export default function Onboarding() {
     setRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
 
   const save = async () => {
-    if (!name.trim()) return Alert.alert('חסר שם', 'הזן שם מלא');
-    if (roles.length === 0) return Alert.alert('בחר תפקיד', 'בחר לפחות תפקיד אחד');
-    if (regions.length === 0) return Alert.alert('בחר אזור', needsCoverage ? 'בחר לפחות אזור אחד' : 'בחר את האזור שלך');
+    if (!name.trim()) return appAlert('חסר שם', 'הזן שם מלא');
+    if (roles.length === 0) return appAlert('בחר תפקיד', 'בחר לפחות תפקיד אחד');
+    if (regions.length === 0) return appAlert('בחר אזור', needsCoverage ? 'בחר לפחות אזור אחד' : 'בחר את האזור שלך');
 
     setLoading(true);
     const { error } = await setMyProfile({
@@ -55,13 +56,13 @@ export default function Onboarding() {
     });
     if (error) {
       setLoading(false);
-      return Alert.alert('שגיאה', error.message);
+      return appAlert('שגיאה', error.message);
     }
     if (isRecipient) {
       const { error: rErr } = await upsertRecipientProfile({ recipient_type: recipientType, region: regions[0] });
       if (rErr) {
         setLoading(false);
-        return Alert.alert('שגיאה', rErr.message);
+        return appAlert('שגיאה', rErr.message);
       }
     }
     await refreshProfile();

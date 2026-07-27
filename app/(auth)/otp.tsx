@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, Alert, TextInput, Pressable, StyleSheet } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams } from 'expo-router';
 import { Screen, Txt, Button, Header } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
@@ -22,7 +23,7 @@ export default function OtpScreen() {
     setLoading(false);
     if (error) {
       setCode('');
-      Alert.alert('קוד שגוי', error);
+      appAlert('קוד שגוי', error);
       inputRef.current?.focus();
       return;
     }
@@ -76,7 +77,7 @@ export default function OtpScreen() {
 
         <Button
           title="אימות והמשך"
-          onPress={() => (code.length === CODE_LENGTH ? doVerify(code) : Alert.alert('קוד קצר מדי', `הזן ${CODE_LENGTH} ספרות`))}
+          onPress={() => (code.length === CODE_LENGTH ? doVerify(code) : appAlert('קוד קצר מדי', `הזן ${CODE_LENGTH} ספרות`))}
           loading={loading}
           style={{ marginTop: spacing.xxl }}
         />

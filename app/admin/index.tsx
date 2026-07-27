@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Alert, RefreshControl } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, EmptyState, Divider, Field } from '../../src/components/ui';
@@ -66,7 +67,7 @@ export default function AdminPanel() {
 
   const decide = async (u: PendingUser, approve: boolean) => {
     const { error } = await adminApproveUser(u.id, approve);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     await load();
   };
 
@@ -75,12 +76,12 @@ export default function AdminPanel() {
     const r1 = await adminSetIntegrationConfig('whatsapp_token', waToken.trim());
     const r2 = await adminSetIntegrationConfig('whatsapp_instance_id', waInstance.trim());
     setWaSaving(false);
-    if (r1.error || r2.error) return Alert.alert('שגיאה', (r1.error ?? r2.error)!.message);
-    Alert.alert('נשמר', 'פרטי ה-WhatsApp עודכנו. קודי האימות יישלחו דרך iBot.');
+    if (r1.error || r2.error) return appAlert('שגיאה', (r1.error ?? r2.error)!.message);
+    appAlert('נשמר', 'פרטי ה-WhatsApp עודכנו. קודי האימות יישלחו דרך iBot.');
   };
 
   const resetAll = () => {
-    Alert.alert(
+    appAlert(
       'איפוס כל התוכן',
       'פעולה זו תמחק את כל התרומות, הבקשות, השיבוצים, הפיד וההתראות ותאפס מונים. המשתמשים יישארו. להמשיך?',
       [
@@ -90,8 +91,8 @@ export default function AdminPanel() {
           style: 'destructive',
           onPress: async () => {
             const { error } = await adminResetAll();
-            if (error) return Alert.alert('שגיאה', error.message);
-            Alert.alert('בוצע', 'כל התוכן אופס.');
+            if (error) return appAlert('שגיאה', error.message);
+            appAlert('בוצע', 'כל התוכן אופס.');
             await load();
           },
         },

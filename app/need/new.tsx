@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Alert } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { Screen, Header, Field, Button, Txt, Pill } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
 import { RegionPicker } from '../../src/components/RegionPicker';
@@ -37,9 +38,9 @@ export default function NewNeed() {
 
   const submit = async () => {
     const qty = parseInt(quantity, 10);
-    if (!foodType.trim()) return Alert.alert('מה צריך?', 'בחרו או כתבו איזה מזון דרוש');
-    if (!qty || qty <= 0) return Alert.alert('כמה?', 'מלאו כמות (מספר גדול מ-0)');
-    if (region.length !== 1) return Alert.alert('לאיזה אזור?', 'בחרו אזור אחד');
+    if (!foodType.trim()) return appAlert('מה צריך?', 'בחרו או כתבו איזה מזון דרוש');
+    if (!qty || qty <= 0) return appAlert('כמה?', 'מלאו כמות (מספר גדול מ-0)');
+    if (region.length !== 1) return appAlert('לאיזה אזור?', 'בחרו אזור אחד');
 
     setLoading(true);
     const { error } = await createNeed({
@@ -50,8 +51,8 @@ export default function NewNeed() {
       notes: notes.trim() || null,
     });
     setLoading(false);
-    if (error) return Alert.alert('שגיאה', error.message);
-    Alert.alert('הבקשה פורסמה 🎉', 'תורמים באזור קיבלו התראה', [{ text: 'מעולה', onPress: () => safeBack() }]);
+    if (error) return appAlert('שגיאה', error.message);
+    appAlert('הבקשה פורסמה 🎉', 'תורמים באזור קיבלו התראה', [{ text: 'מעולה', onPress: () => safeBack() }]);
   };
 
   return (

@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, RefreshControl, Alert } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Header, Txt, Card, Button, StatusBadge, EmptyState } from '../../src/components/ui';
 import { useAuth } from '../../src/context/AuthContext';
@@ -55,7 +56,7 @@ export default function Activity() {
     setTaking(assignmentId);
     const { error } = await claimDelivery(assignmentId);
     setTaking(null);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     await load();
     router.push(`/assignment/${assignmentId}`);
   };

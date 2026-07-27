@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Alert, Linking, Pressable } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, StatusBadge, Divider } from '../../src/components/ui';
@@ -96,33 +97,33 @@ export default function AssignmentDetail() {
 
   const doReveal = async () => {
     const { data, error } = await revealPhone(id!);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     setContacts((data as Contact[]) ?? []);
   };
 
   const advance = async (status: AssignmentStatus) => {
     const { error } = await advanceAssignment(id!, status);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     await load();
   };
 
   // נהג מתנדב תופס משלוח פתוח ישירות ממסך השיבוץ
   const takeDelivery = async () => {
     const { error } = await claimDelivery(id!);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     await load();
   };
 
   // נהג מבטל את המשלוח שלקח → חוזר ל"ממתין לשינוע" ונהג אחר יוכל לקחת
   const doRelease = () => {
-    Alert.alert('ביטול המשלוח', 'המשלוח יחזור להמתנה לשינוע ונהג אחר יוכל לקחת אותו. להמשיך?', [
+    appAlert('ביטול המשלוח', 'המשלוח יחזור להמתנה לשינוע ונהג אחר יוכל לקחת אותו. להמשיך?', [
       { text: 'לא', style: 'cancel' },
       {
         text: 'כן, בטל',
         style: 'destructive',
         onPress: async () => {
           const { error } = await releaseDelivery(id!);
-          if (error) return Alert.alert('שגיאה', error.message);
+          if (error) return appAlert('שגיאה', error.message);
           await load();
         },
       },
@@ -131,7 +132,7 @@ export default function AssignmentDetail() {
 
   const onNext = (action: NextAction) => {
     if (action.confirm) {
-      Alert.alert(action.confirm.title, action.confirm.message, [
+      appAlert(action.confirm.title, action.confirm.message, [
         { text: 'לא עכשיו', style: 'cancel' },
         { text: 'כן, בטוח', onPress: () => advance(action.status) },
       ]);
@@ -144,12 +145,12 @@ export default function AssignmentDetail() {
     if (!a) return;
     const rateeId = a.donor_id === profile?.id ? a.recipient?.user_id : a.donor_id;
     if (!rateeId) return;
-    Alert.alert('דרג את הצד השני', 'כמה כוכבים?', [
+    appAlert('דרג את הצד השני', 'כמה כוכבים?', [
       ...[5, 4, 3, 2, 1].map((s) => ({
         text: '⭐'.repeat(s),
         onPress: async () => {
           const { error } = await submitRating({ assignment_id: id!, ratee_id: rateeId, score: s });
-          if (error) return Alert.alert('שגיאה', error.message);
+          if (error) return appAlert('שגיאה', error.message);
           await load();
         },
       })),

@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Alert, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Header, Txt, Card, Button, EmptyState } from '../../src/components/ui';
@@ -66,7 +67,7 @@ export default function Dispatch() {
     setAssigning(c.id);
     const { error } = await assignCourier(id!, c.id);
     setAssigning(null);
-    if (error) return Alert.alert('שגיאה', error.message);
+    if (error) return appAlert('שגיאה', error.message);
     router.back();
   };
 

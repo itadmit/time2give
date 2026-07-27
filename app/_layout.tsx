@@ -16,6 +16,7 @@ import { NotificationsProvider } from '../src/context/NotificationsContext';
 import { LocationPrompt } from '../src/components/LocationPrompt';
 import { RoleWizard } from '../src/components/RoleWizard';
 import { UpdateReadyBanner } from '../src/components/UpdateReadyBanner';
+import { AppAlertHost } from '../src/components/AppAlert';
 import { useOTAUpdates } from '../src/lib/useOTAUpdates';
 import { colors } from '../src/theme/tokens';
 
@@ -82,6 +83,7 @@ function AuthGate() {
       </Stack>
       <LocationPrompt enabled={!loading && !!session && !!profile?.onboarded} />
       <RoleWizard enabled={!loading && !session} />
+      <AppAlertHost />
     </>
   );
 }

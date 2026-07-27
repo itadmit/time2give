@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { appAlert } from '../../src/components/AppAlert';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,30 +41,30 @@ export default function Profile() {
   // אבחון OTA מהמכשיר — מציג channel/runtime/updateId + לוג expo-updates אמיתי (rollback/crash)
   const showDiagnostics = async () => {
     const report = await getOtaDiagnostics();
-    Alert.alert('אבחון OTA', report, [{ text: 'סגור' }]);
+    appAlert('אבחון OTA', report, [{ text: 'סגור' }]);
   };
 
   // בדיקת עדכון OTA ידנית. לא קוראים ל-reloadAsync (מקריס עם MapView) — העדכון מוחל ב-cold-restart.
   const checkUpdates = async () => {
     if (__DEV__ || !Updates.isEnabled) {
-      return Alert.alert('עדכוני OTA לא פעילים כאן', 'הרצה מקומית / Expo Go לא מקבלת עדכוני OTA. זה עובד רק ב-build אמיתי (TestFlight / חנות).');
+      return appAlert('עדכוני OTA לא פעילים כאן', 'הרצה מקומית / Expo Go לא מקבלת עדכוני OTA. זה עובד רק ב-build אמיתי (TestFlight / חנות).');
     }
     if (isUpdatePending) {
-      return Alert.alert('עדכון מוכן ✓', 'עדכון כבר הורד. סגור ופתח את האפליקציה כדי להחיל אותו.', [{ text: 'הבנתי' }]);
+      return appAlert('עדכון מוכן ✓', 'עדכון כבר הורד. סגור ופתח את האפליקציה כדי להחיל אותו.', [{ text: 'הבנתי' }]);
     }
     setCheckingUpdate(true);
     try {
       const result = await Updates.checkForUpdateAsync();
       if (!result.isAvailable) {
-        return Alert.alert('אתה מעודכן ✓', 'אין עדכון חדש כרגע.', [
+        return appAlert('אתה מעודכן ✓', 'אין עדכון חדש כרגע.', [
           { text: 'סגור', style: 'cancel' },
           { text: 'אבחון 🔎', onPress: showDiagnostics },
         ]);
       }
       await Updates.fetchUpdateAsync();
-      Alert.alert('עדכון מוכן ✓', 'גרסה חדשה הותקנה. סגור ופתח את האפליקציה כדי להחיל אותה.', [{ text: 'הבנתי' }]);
+      appAlert('עדכון מוכן ✓', 'גרסה חדשה הותקנה. סגור ופתח את האפליקציה כדי להחיל אותה.', [{ text: 'הבנתי' }]);
     } catch (e: any) {
-      Alert.alert('שגיאה בבדיקת עדכון', e?.message ?? String(e), [
+      appAlert('שגיאה בבדיקת עדכון', e?.message ?? String(e), [
         { text: 'סגור', style: 'cancel' },
         { text: 'אבחון 🔎', onPress: showDiagnostics },
       ]);
@@ -132,9 +133,9 @@ export default function Profile() {
   };
 
   const saveEdit = async () => {
-    if (!name.trim()) return Alert.alert('חסר שם', 'הזן שם מלא');
-    if (editRoles.length === 0) return Alert.alert('בחר תפקיד', 'בחר לפחות תפקיד אחד');
-    if (regions.length === 0) return Alert.alert('בחר אזור', editNeedsCoverage ? 'בחר לפחות אזור אחד' : 'בחר את האזור שלך');
+    if (!name.trim()) return appAlert('חסר שם', 'הזן שם מלא');
+    if (editRoles.length === 0) return appAlert('בחר תפקיד', 'בחר לפחות תפקיד אחד');
+    if (regions.length === 0) return appAlert('בחר אזור', editNeedsCoverage ? 'בחר לפחות אזור אחד' : 'בחר את האזור שלך');
     setSaving(true);
     const { error } = await setMyProfile({
       full_name: name.trim(),
@@ -143,13 +144,13 @@ export default function Profile() {
     });
     if (error) {
       setSaving(false);
-      return Alert.alert('שגיאה', error.message);
+      return appAlert('שגיאה', error.message);
     }
     if (editIsRecipient) {
       const { error: rErr } = await upsertRecipientProfile({ recipient_type: recipientType, region: regions[0] });
       if (rErr) {
         setSaving(false);
-        return Alert.alert('שגיאה', rErr.message);
+        return appAlert('שגיאה', rErr.message);
       }
     }
     setSaving(false);
