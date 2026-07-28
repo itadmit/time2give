@@ -58,7 +58,7 @@ export default function Saved() {
       <Header title="שמורים" subtitle={rows.length ? `${rows.length} תרומות שמורות` : undefined} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}>
         {rows.length === 0 ? (
-          <EmptyState icon="heart-outline" title="אין תרומות שמורות" subtitle="לחצו על ❤️ בכרטיס כדי לשמור תרומה" />
+          <EmptyState icon="heart-outline" title="אין תרומות שמורות" subtitle="לחצו על אייקון הלב בכרטיס כדי לשמור תרומה" />
         ) : (
           rows.map((o) => {
             const km = userLoc && o.origin_lat != null && o.origin_lng != null ? haversineKm(userLoc, { lat: o.origin_lat, lng: o.origin_lng }) : null;
@@ -72,7 +72,12 @@ export default function Saved() {
                 <View style={{ flex: 1 }}>
                   <Txt weight="bold" numberOfLines={1}>{o.quantity} {o.unit_label} · {o.food_type}</Txt>
                   <Txt variant="caption" color={colors.textMuted} numberOfLines={1}>{o.donor_name}</Txt>
-                  {o.origin_city ? <Txt variant="caption" color={colors.textMuted}>📍 {o.origin_city}{km != null ? ` · ${formatKm(km)}` : ''}</Txt> : null}
+                  {o.origin_city ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                      <Ionicons name="location" size={12} color={colors.textMuted} />
+                      <Txt variant="caption" color={colors.textMuted}>{o.origin_city}{km != null ? ` · ${formatKm(km)}` : ''}</Txt>
+                    </View>
+                  ) : null}
                 </View>
                 <Pressable onPress={() => toggle(o.id)} hitSlop={10} style={{ padding: 4 }}>
                   <Ionicons name="heart" size={24} color={colors.danger} />

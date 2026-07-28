@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, ScrollView, Image } from 'react-native';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Header, Txt, Card, StatBlock } from '../../src/components/ui';
+import { Header, Txt, Card, StatBlock, Rating, Stars } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
 import { supabase } from '../../src/lib/supabase';
 import { ROLE_LABELS, LEVEL_META, type UserRole, type ReputationLevel } from '../../src/lib/domain';
@@ -86,7 +86,7 @@ export default function PublicProfile() {
                 ) : null}
                 {u.rating_count > 0 ? (
                   <View style={[styles.chip, { backgroundColor: colors.brand50 }]}>
-                    <Txt variant="caption" weight="bold" color={colors.brand700}>⭐ {u.rating_avg} ({u.rating_count})</Txt>
+                    <Rating value={u.rating_avg} count={u.rating_count} color={colors.brand700} />
                   </View>
                 ) : null}
               </View>
@@ -112,7 +112,7 @@ export default function PublicProfile() {
                     <View key={rv.id} style={{ paddingVertical: spacing.md, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Txt weight="bold">{rv.rater_name ?? 'משתמש'}</Txt>
-                        <Txt variant="caption" color={colors.warning}>{'⭐'.repeat(rv.score)}</Txt>
+                        <Stars score={rv.score} size={13} />
                       </View>
                       {rv.comment ? <Txt variant="small" color={colors.text} style={{ marginTop: 2 }}>{rv.comment}</Txt> : null}
                       <Txt variant="caption" color={colors.textMuted} style={{ marginTop: 2 }}>{heDate(rv.created_at)}</Txt>

@@ -37,7 +37,7 @@ export default function NewNeed() {
     });
     setLoading(false);
     if (error) return appAlert('שגיאה', error.message);
-    appAlert('הבקשה פורסמה 🎉', 'תורמים באזור קיבלו התראה', [{ text: 'מעולה', onPress: () => safeBack() }]);
+    appAlert('הבקשה פורסמה', 'תורמים באזור קיבלו התראה', [{ text: 'מעולה', onPress: () => safeBack() }]);
   };
 
   return (

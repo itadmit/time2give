@@ -245,17 +245,15 @@ export default function Profile() {
               </Txt>
             </View>
             {profile.rating_count > 0 ? (
-              <View style={[styles.chip, { backgroundColor: colors.brand50 }]}>
-                <Txt variant="caption" weight="bold" color={colors.brand700}>
-                  ⭐ {profile.rating_avg} ({profile.rating_count})
-                </Txt>
+              <View style={[styles.chip, { backgroundColor: colors.brand50, flexDirection: 'row', alignItems: 'center', gap: 3 }]}>
+                <Ionicons name="star" size={12} color={colors.brand700} />
+                <Txt variant="caption" weight="bold" color={colors.brand700}>{profile.rating_avg} ({profile.rating_count})</Txt>
               </View>
             ) : null}
             {verified ? (
-              <View style={[styles.chip, { backgroundColor: '#E7F4EC' }]}>
-                <Txt variant="caption" weight="bold" color={colors.success}>
-                  ✓ מאומת
-                </Txt>
+              <View style={[styles.chip, { backgroundColor: '#E7F4EC', flexDirection: 'row', alignItems: 'center', gap: 3 }]}>
+                <Ionicons name="checkmark-circle" size={13} color={colors.success} />
+                <Txt variant="caption" weight="bold" color={colors.success}>מאומת</Txt>
               </View>
             ) : null}
           </View>

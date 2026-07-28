@@ -3,7 +3,7 @@ import { View, ScrollView, Alert, Linking, Pressable, Image, StyleSheet } from '
 import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Header, Txt, Button, StatusBadge } from '../../src/components/ui';
+import { Header, Txt, Button, StatusBadge, Rating } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
@@ -168,7 +168,7 @@ export default function AssignmentDetail() {
     if (!rateeId) return;
     appAlert('דרג את הצד השני', 'כמה כוכבים?', [
       ...[5, 4, 3, 2, 1].map((s) => ({
-        text: '⭐'.repeat(s),
+        text: `${s} כוכבים`,
         onPress: async () => {
           const { error } = await submitRating({ assignment_id: id!, ratee_id: rateeId, score: s });
           if (error) return appAlert('שגיאה', error.message);
@@ -245,7 +245,7 @@ export default function AssignmentDetail() {
                     </View>
                   ) : null}
                   {donor.rating_count > 0 ? (
-                    <Txt variant="caption" weight="bold" color={colors.warning}>⭐ {donor.rating_avg} ({donor.rating_count})</Txt>
+                    <Rating value={donor.rating_avg} count={donor.rating_count} />
                   ) : (
                     <Txt variant="caption" color={colors.textMuted}>תורם חדש</Txt>
                   )}

@@ -4,7 +4,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { Txt, Button, EmptyState } from '../../src/components/ui';
+import { Txt, Button, EmptyState, Rating } from '../../src/components/ui';
 import { appAlert } from '../../src/components/AppAlert';
 import { HelpModal } from '../../src/components/HelpModal';
 import { MapBoundary } from '../../src/components/MapBoundary';
@@ -194,7 +194,7 @@ export default function Feed() {
             )}
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Txt variant="caption" color={colors.textMuted}>{isGuest ? 'שלום 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}</Txt>
+            <Txt variant="caption" color={colors.textMuted}>{isGuest ? 'שלום' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}</Txt>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Ionicons name="location" size={16} color={colors.secondary} />
               <Txt weight="extrabold" variant="h2">{locLabel ? `סביבך · ${locLabel}` : 'תרומות באזור שלך'}</Txt>
@@ -290,8 +290,9 @@ export default function Feed() {
                         <Ionicons name={foodIcon(i.food)} size={34} color={accent} />
                       </View>
                     )}
-                    <View style={[styles.cardBadge, { backgroundColor: i.badgeColor }]}>
-                      <Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 10 }}>{tab === 'offers' && i.needsTransport ? '🚗 ' : ''}{i.badge}</Txt>
+                    <View style={[styles.cardBadge, { backgroundColor: i.badgeColor, flexDirection: 'row', alignItems: 'center', gap: 3 }]}>
+                      {tab === 'offers' && i.needsTransport ? <Ionicons name="car" size={11} color={colors.white} /> : null}
+                      <Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 10 }}>{i.badge}</Txt>
                     </View>
                     {tab === 'offers' ? (
                       <Pressable onPress={() => toggleFav(i.id)} hitSlop={8} style={styles.heart}>
@@ -311,7 +312,7 @@ export default function Feed() {
                           <Txt variant="caption" color={colors.textMuted}>{i.city}{i.km != null ? ` · ${formatKm(i.km)}` : ''}</Txt>
                         </View>
                       ) : null}
-                      {tab === 'offers' && i.rating ? <Txt variant="caption" weight="bold" color={colors.warning}>⭐ {i.rating}</Txt> : null}
+                      {tab === 'offers' && i.rating ? <Rating value={i.rating} /> : null}
                       <Txt variant="caption" color={colors.textMuted}>· {timeAgo(i.created_at)}</Txt>
                     </View>
                   </View>

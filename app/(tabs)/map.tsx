@@ -116,7 +116,7 @@ export default function OffersScreen() {
                       {o.quantity} {o.unit_label} · {o.food_type}
                     </Txt>
                     <Txt variant="caption" color={colors.textMuted}>
-                      {o.donor_name} · Level {lvl.n} {o.donor_rating > 0 ? `· ⭐ ${o.donor_rating}` : ''}
+                      {o.donor_name} · Level {lvl.n} {o.donor_rating > 0 ? `· דירוג ${o.donor_rating}` : ''}
                       {o.origin_city ? ` · ${o.origin_city}` : ''}
                     </Txt>
                   </View>

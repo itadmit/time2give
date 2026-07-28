@@ -114,7 +114,7 @@ export default function NewOffer() {
     });
     setLoading(false);
     if (error) return appAlert('שגיאה', error.message);
-    appAlert('התרומה פורסמה 🎉', 'התרומה מופיעה כעת למקבלים באזור', [{ text: 'מעולה', onPress: () => safeBack() }]);
+    appAlert('התרומה פורסמה', 'התרומה מופיעה כעת למקבלים באזור', [{ text: 'מעולה', onPress: () => safeBack() }]);
   };
 
   return (
@@ -186,7 +186,7 @@ export default function NewOffer() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FBF0DA', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md }}>
               <Ionicons name="information-circle" size={18} color={colors.warning} />
               <Txt variant="caption" color={colors.textMuted} style={{ flex: 1 }}>
-                התרומה תופיע במפה עם סימון "צריך שינוע", ונהגים מתנדבים באזור יקבלו התראה 🚗
+                התרומה תופיע במפה עם סימון "צריך שינוע", ונהגים מתנדבים באזור יקבלו התראה
               </Txt>
             </View>
           ) : null}

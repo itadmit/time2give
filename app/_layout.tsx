@@ -153,6 +153,7 @@ export default function RootLayout() {
     const installing = isDownloading || isUpdatePending;
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand700 }}>
+        <StatusBar style="light" />
         <ActivityIndicator color={colors.white} size="large" />
         {installing ? (
           <Text style={{ color: colors.white, marginTop: 16, fontSize: 14, fontWeight: '600' }}>
@@ -165,7 +166,8 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      {/* אפליקציה בהירה → אייקוני סטטוס כהים (אחרת לבן-על-לבן) */}
+      <StatusBar style="dark" />
       {/* direction:'rtl' מבטיח פריסת ימין-לשמאל מיידית, גם אם forceRTL עוד לא נכנס לתוקף (dev) */}
       <View style={{ flex: 1, direction: 'rtl' }}>
         <AuthProvider>

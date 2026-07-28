@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { Txt, Button } from '../../src/components/ui';
+import { Txt, Button, Rating } from '../../src/components/ui';
 import { appAlert } from '../../src/components/AppAlert';
 import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
@@ -113,8 +113,9 @@ export default function OfferDetail() {
 
           {/* תגיות */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.md }}>
-            <View style={[styles.tag, { backgroundColor: o?.donor_is_courier ? '#E7F6EE' : '#FBF0DA' }]}>
-              <Txt variant="caption" weight="bold" color={o?.donor_is_courier ? colors.secondary : colors.warning}>{o?.donor_is_courier ? 'התורם מביא' : '🚗 צריך שינוע'}</Txt>
+            <View style={[styles.tag, { backgroundColor: o?.donor_is_courier ? '#E7F6EE' : '#FBF0DA', flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
+              {!o?.donor_is_courier ? <Ionicons name="car" size={13} color={colors.warning} /> : null}
+              <Txt variant="caption" weight="bold" color={o?.donor_is_courier ? colors.secondary : colors.warning}>{o?.donor_is_courier ? 'התורם מביא' : 'צריך שינוע'}</Txt>
             </View>
             {o?.kosher ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>כשר</Txt></View> : null}
             {o?.vegetarian ? <View style={styles.tag}><Txt variant="caption" weight="medium" color={colors.brand700}>צמחוני</Txt></View> : null}
@@ -132,7 +133,10 @@ export default function OfferDetail() {
             <View style={{ flex: 1 }}>
               <Txt variant="caption" color={colors.textMuted}>התורם</Txt>
               <Txt weight="bold">{o?.donor_name ?? ''}</Txt>
-              <Txt variant="caption" color={colors.textMuted}>{lvl ? `Level ${lvl.n} · ${lvl.label}` : ''}{o && o.donor_rating > 0 ? ` · ⭐ ${o.donor_rating}` : ''}</Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {lvl ? <Txt variant="caption" color={colors.textMuted}>Level {lvl.n} · {lvl.label}</Txt> : null}
+                {o && o.donor_rating > 0 ? <Rating value={o.donor_rating} /> : null}
+              </View>
             </View>
             <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
           </Pressable>

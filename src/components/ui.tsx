@@ -150,6 +150,29 @@ export function Card({ children, style, onPress, accent }: { children: React.Rea
   return <View style={[styles.card, shadow.card, style]}>{children}</View>;
 }
 
+/* ── דירוג: אייקון כוכב + ערך (במקום אימוג'י ⭐) ── */
+export function Rating({ value, count, color = colors.warning, size = 12 }: { value: number; count?: number; color?: string; size?: number }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+      <Ionicons name="star" size={size} color={color} />
+      <Txt variant="caption" weight="bold" color={color}>
+        {value}{count != null ? ` (${count})` : ''}
+      </Txt>
+    </View>
+  );
+}
+
+/* ── שורת כוכבים (1-5) לביקורות ── */
+export function Stars({ score, size = 14 }: { score: number; size?: number }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 1 }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Ionicons key={i} name={i < score ? 'star' : 'star-outline'} size={size} color={colors.warning} />
+      ))}
+    </View>
+  );
+}
+
 /* ── Pill (filter tab) ── */
 export function Pill({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
   return (
