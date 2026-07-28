@@ -139,35 +139,9 @@ export default function Feed() {
   };
 
   const goLogin = () => router.push('/(auth)/phone');
-
-  const claim = (o: OfferRow) => {
-    if (isGuest) return goLogin();
-    appAlert('קבלת תרומה', `${o.quantity} ${o.unit_label} · ${o.food_type}\nמאת ${o.donor_name}`, [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'איסוף עצמאי', onPress: () => doClaim(o.id, false) },
-      { text: 'צריך שינוע', onPress: () => doClaim(o.id, true) },
-    ]);
-  };
-  const doClaim = async (offerId: string, needTransport: boolean) => {
-    const { data, error } = await claimOffer(offerId, needTransport);
-    if (error) return appAlert('שגיאה', error.message);
-    setSelectedId(null); await load();
-    if (data) router.push(`/assignment/${data}`);
-  };
-  const commit = (n: NeedRow) => {
-    if (isGuest) return goLogin();
-    appAlert('התחייבות לבקשה', `${n.quantity} ${n.unit_label} · ${n.food_type}\nאזור ${regionLabel(n.region)}`, [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'כן, אני מוביל', onPress: () => doCommit(n.id, true) },
-      { text: 'לא, צריך שינוע', onPress: () => doCommit(n.id, false) },
-    ]);
-  };
-  const doCommit = async (needId: string, selfTransport: boolean) => {
-    const { data, error } = await commitToNeed(needId, selfTransport);
-    if (error) return appAlert('שגיאה', error.message);
-    setSelectedId(null); await load();
-    if (data) router.push(`/assignment/${data}`);
-  };
+  // לחיצה על פריט → פותחת עמוד המוצר (תרומה/בקשה)
+  const openOffer = (offerId: string) => router.push(`/offer/${offerId}` as any);
+  const openNeed = (needId: string) => router.push(`/need/${needId}` as any);
 
   let items: Item[] = [];
   if (tab === 'offers') {
@@ -179,7 +153,7 @@ export default function Feed() {
         badge: o.donor_is_courier ? 'התורם מביא' : 'צריך שינוע', badgeColor: o.donor_is_courier ? colors.secondary : colors.warning,
         needsTransport: !o.donor_is_courier, city: o.origin_city ?? '', created_at: o.created_at,
         donorName: o.donor_name, donorPhoto: o.donor_photo, rating: o.donor_rating,
-        act: () => claim(o),
+        act: () => openOffer(o.id),
       }));
   } else {
     items = needs
@@ -191,7 +165,7 @@ export default function Feed() {
           subtitle: `${RECIPIENT_TYPE_LABELS[n.recipient_type]} · ${regionLabel(n.region)}`,
           photo: null, lat: c?.lat ?? null, lng: c?.lng ?? null, km: dist(c?.lat, c?.lng),
           badge: 'בקשה פתוחה', badgeColor: colors.brand700, city: regionLabel(n.region), created_at: n.created_at,
-          act: () => commit(n),
+          act: () => openNeed(n.id),
         };
       });
   }
@@ -297,7 +271,7 @@ export default function Feed() {
                 <Pressable onPress={() => setSelectedId(null)} hitSlop={10} style={styles.detailClose}><Ionicons name="close" size={18} color={colors.textMuted} /></Pressable>
                 <Txt weight="bold" variant="h2">{selected.quantity} {selected.unit} · {selected.food}</Txt>
                 <Txt variant="caption" color={colors.textMuted} style={{ marginTop: 2 }}>{selected.subtitle}{selected.km != null ? ` · ${formatKm(selected.km)}` : ''}</Txt>
-                <Button title={isGuest ? 'התחבר' : tab === 'offers' ? 'קבל תרומה זו' : 'אני אתרום'} icon={isGuest ? 'log-in' : 'checkmark-circle'} onPress={isGuest ? goLogin : selected.act} color={accent} style={{ marginTop: spacing.md }} />
+                <Button title={isGuest ? 'התחבר' : 'צפה בפרטים'} icon={isGuest ? 'log-in' : 'arrow-back'} onPress={isGuest ? goLogin : selected.act} color={accent} style={{ marginTop: spacing.md }} />
               </View>
             ) : null}
           </View>

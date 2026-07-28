@@ -53,20 +53,6 @@ export default function Saved() {
     })();
   }, [saved]));
 
-  const claim = (o: OfferRow) => {
-    if (isGuest) return router.push('/(auth)/phone');
-    appAlert('קבלת תרומה', `${o.quantity} ${o.unit_label} · ${o.food_type}\nמאת ${o.donor_name}`, [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'איסוף עצמאי', onPress: () => doClaim(o.id, false) },
-      { text: 'צריך שינוע', onPress: () => doClaim(o.id, true) },
-    ]);
-  };
-  const doClaim = async (offerId: string, t: boolean) => {
-    const { data, error } = await claimOffer(offerId, t);
-    if (error) return appAlert('שגיאה', error.message);
-    if (data) router.push(`/assignment/${data}`);
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="שמורים" subtitle={rows.length ? `${rows.length} תרומות שמורות` : undefined} />
@@ -77,7 +63,7 @@ export default function Saved() {
           rows.map((o) => {
             const km = userLoc && o.origin_lat != null && o.origin_lng != null ? haversineKm(userLoc, { lat: o.origin_lat, lng: o.origin_lng }) : null;
             return (
-              <Pressable key={o.id} onPress={() => claim(o)} style={styles.card}>
+              <Pressable key={o.id} onPress={() => router.push(`/offer/${o.id}` as any)} style={styles.card}>
                 <View style={styles.photo}>
                   {o.photo_url ? <Image source={{ uri: o.photo_url }} style={{ width: '100%', height: '100%' }} /> : (
                     <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }]}><Ionicons name={foodIcon(o.food_type)} size={30} color={colors.brand700} /></View>
