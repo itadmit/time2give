@@ -1,14 +1,15 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, RefreshControl, Alert } from 'react-native';
-import { appAlert } from '../../src/components/AppAlert';
+import { View, ScrollView, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Header, Txt, Card, Button, StatusBadge, EmptyState } from '../../src/components/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { Header, Txt, Card, StatusBadge, EmptyState } from '../../src/components/ui';
+import { appAlert } from '../../src/components/AppAlert';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
 import { claimDelivery } from '../../src/lib/api';
 import { statusUI, type AssignmentStatus } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
-import { colors, spacing } from '../../src/theme/tokens';
+import { colors, spacing, radius } from '../../src/theme/tokens';
 
 type AssignmentRow = {
   id: string;
@@ -22,13 +23,28 @@ type AssignmentRow = {
 
 const SELECT = '*, need:need_id(food_type,quantity,unit_label), offer:offer_id(food_type,quantity,unit_label)';
 
+function timeAgo(iso: string): string {
+  const d = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (d < 3600) return `לפני ${Math.max(1, Math.round(d / 60))} דק׳`;
+  if (d < 86400) return `לפני ${Math.round(d / 3600)} שע׳`;
+  return `לפני ${Math.round(d / 86400)} ימים`;
+}
+
+/** כותרת קבוצה בסגנון iOS (grouped list header) */
+function SectionHeader({ children }: { children: string }) {
+  return (
+    <Txt variant="caption" weight="bold" color={colors.textMuted} style={{ marginTop: spacing.md, marginBottom: spacing.sm, marginRight: 4 }}>
+      {children}
+    </Txt>
+  );
+}
+
 export default function Activity() {
   const { profile } = useAuth();
   const router = useRouter();
   const [rows, setRows] = useState<AssignmentRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [taking, setTaking] = useState<string | null>(null);
-  // נהג מתנדב (מאחד רכז+נהג ישנים) רואה משלוחים פתוחים ותופס אותם בעצמו
   const isDriver =
     profile?.roles?.includes('courier') ||
     profile?.roles?.includes('coordinator') ||
@@ -51,7 +67,6 @@ export default function Activity() {
     setRefreshing(false);
   };
 
-  // הנהג המתנדב תופס את המשלוח בעצמו — עם אימות לפני שינוי הסטטוס
   const take = (assignmentId: string) => {
     appAlert('לקחת את המשלוח?', 'אתם מתחייבים לאסוף מהתורם ולמסור למבקש. את הכתובת המדויקת תתאמו בטלפון.', [
       { text: 'ביטול', style: 'cancel' },
@@ -76,29 +91,27 @@ export default function Activity() {
     const ui = statusUI(r.status);
     const it = info(r);
     return (
-      <Card key={r.id} accent={ui.color} style={{ marginBottom: 12 }} onPress={() => router.push(`/assignment/${r.id}`)}>
+      <Card key={r.id} style={{ marginBottom: 10, padding: spacing.md }} onPress={() => router.push(`/assignment/${r.id}`)}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <StatusBadge color={ui.color} tint={ui.tint} icon={ui.icon} />
           <View style={{ flex: 1 }}>
-            <Txt weight="bold">
-              {it ? `${it.quantity} ${it.unit_label} · ${it.food_type}` : 'תרומה'}
-            </Txt>
-            <Txt variant="caption" color={colors.textMuted}>
-              {ui.label} · אזור {regionLabel(r.general_destination)}
-            </Txt>
+            <Txt weight="bold" numberOfLines={1}>{it ? `${it.quantity} ${it.unit_label} · ${it.food_type}` : 'תרומה'}</Txt>
+            <Txt variant="caption" color={colors.textMuted}>{regionLabel(r.general_destination)} · {timeAgo(r.created_at)}</Txt>
           </View>
-          <Txt variant="caption" color={ui.color} weight="bold">
-            {ui.label}
-          </Txt>
+          <View style={{ backgroundColor: ui.tint, paddingHorizontal: 9, paddingVertical: 3, borderRadius: radius.pill }}>
+            <Txt variant="caption" weight="bold" color={ui.color} style={{ fontSize: 11 }}>{ui.label}</Txt>
+          </View>
+          <Ionicons name="chevron-back" size={18} color={colors.textMuted} />
         </View>
         {showTake ? (
-          <Button
-            title="אני לוקח את המשלוח"
-            icon="car"
-            loading={taking === r.id}
-            onPress={() => take(r.id)}
-            style={{ marginTop: 12 }}
-          />
+          <Pressable onPress={() => take(r.id)} style={{ marginTop: 12, backgroundColor: colors.brand700, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}>
+            {taking === r.id ? <ActivityIndicator color={colors.white} /> : (
+              <>
+                <Ionicons name="car" size={18} color={colors.white} />
+                <Txt weight="bold" color={colors.white}>אני לוקח את המשלוח</Txt>
+              </>
+            )}
+          </Pressable>
         ) : null}
       </Card>
     );
@@ -108,22 +121,17 @@ export default function Activity() {
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="הפעילות שלי" />
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand700} />}
       >
         {isDriver && waiting.length > 0 ? (
           <>
-            <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
-              משלוחים פתוחים לאיסוף
-            </Txt>
+            <SectionHeader>משלוחים פתוחים לאיסוף</SectionHeader>
             {waiting.map((r) => renderCard(r, true))}
-            <View style={{ height: spacing.lg }} />
           </>
         ) : null}
 
-        <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
-          כל השיבוצים
-        </Txt>
+        <SectionHeader>כל השיבוצים</SectionHeader>
         {rows.length === 0 ? (
           <EmptyState icon="time-outline" title="אין פעילות עדיין" subtitle="שיבוצים ומשלוחים יופיעו כאן" />
         ) : (
