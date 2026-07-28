@@ -1,10 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Pressable, Alert } from 'react-native';
+import { View, ScrollView, Pressable, Alert, Image, StyleSheet } from 'react-native';
 import { appAlert } from '../../src/components/AppAlert';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { Ionicons } from '@expo/vector-icons';
-import { Header, Txt, Card, Button, StatBlock, Divider, Field } from '../../src/components/ui';
+import { Header, Txt, Card, Button, StatBlock, Field } from '../../src/components/ui';
 import { RegionPicker } from '../../src/components/RegionPicker';
 import { useAuth } from '../../src/context/AuthContext';
 import { setMyProfile, upsertRecipientProfile } from '../../src/lib/api';
@@ -15,6 +15,55 @@ import { regionLabel, type Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
 
 type Badge = { id: string; badge_type: string };
+
+// תווית קבוצה בסגנון iOS grouped list — טקסט אפור קטן מעל הכרטיס הלבן
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Txt variant="caption" weight="bold" color={colors.textMuted} style={{ marginTop: spacing.lg, marginBottom: spacing.sm, marginRight: 4 }}>
+      {children}
+    </Txt>
+  );
+}
+
+// שורת רשימה בסגנון iOS — אייקון + תווית + chevron אחורה, עם hairline מפריד
+function Row({
+  icon,
+  label,
+  onPress,
+  loading,
+  danger,
+  last,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress?: () => void;
+  loading?: boolean;
+  danger?: boolean;
+  last?: boolean;
+}) {
+  const fg = danger ? colors.danger : colors.text;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={loading}
+      style={({ pressed }) => [
+        styles.row,
+        !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
+        pressed && { backgroundColor: colors.surface },
+      ]}
+    >
+      <Ionicons name={icon} size={22} color={danger ? colors.danger : colors.brand700} />
+      <Txt weight="medium" color={fg} style={{ flex: 1 }}>
+        {label}
+      </Txt>
+      {loading ? (
+        <Ionicons name="ellipsis-horizontal" size={18} color={colors.textMuted} />
+      ) : (
+        <Ionicons name="chevron-back" size={18} color={colors.separator} />
+      )}
+    </Pressable>
+  );
+}
 
 const ROLE_OPTIONS: { role: UserRole; icon: keyof typeof Ionicons.glyphMap; desc: string }[] = [
   { role: 'donor', icon: 'gift', desc: 'מכין ומספק מזון' },
@@ -161,30 +210,35 @@ export default function Profile() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="הפרופיל שלי" />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
-        <Card style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
+        {/* כרטיס פרופיל — אווטאר, שם, תפקידים, באדג'ים */}
+        <Card style={{ alignItems: 'center', paddingVertical: spacing.xl }}>
           {!editing ? (
             <Pressable onPress={startEdit} hitSlop={12} style={styles.editBtn}>
-              <Ionicons name="pencil" size={18} color={colors.brand700} />
+              <Ionicons name="pencil" size={16} color={colors.brand700} />
             </Pressable>
           ) : null}
           <View style={styles.avatar}>
-            <Ionicons name="person" size={40} color={colors.brand700} />
+            {profile.photo_url ? (
+              <Image source={{ uri: profile.photo_url }} style={styles.avatarImg} />
+            ) : (
+              <Ionicons name="person" size={44} color={colors.brand700} />
+            )}
           </View>
           {editing ? (
-            <View style={{ alignSelf: 'stretch', marginTop: spacing.md }}>
+            <View style={{ alignSelf: 'stretch', marginTop: spacing.lg }}>
               <Field label="שם מלא" value={name} onChangeText={setName} placeholder="לדוגמא: ישראל ישראלי" autoFocus />
             </View>
           ) : (
-            <Txt variant="h1" weight="extrabold" style={{ marginTop: spacing.md }}>
+            <Txt variant="h1" weight="extrabold" center style={{ marginTop: spacing.md }}>
               {profile.full_name}
             </Txt>
           )}
-          <Txt variant="caption" color={colors.textMuted}>
+          <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: 2 }}>
             {profile.roles.map((r) => ROLE_LABELS[r]).join(' · ')}
           </Txt>
 
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: spacing.md }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: spacing.md }}>
             <View style={[styles.chip, { backgroundColor: colors.brand700 }]}>
               <Txt variant="caption" weight="bold" color={colors.white}>
                 Level {lvl.n} · {lvl.label}
@@ -207,7 +261,8 @@ export default function Profile() {
           </View>
         </Card>
 
-        <View style={{ height: spacing.lg }} />
+        {/* סטטיסטיקות */}
+        <SectionLabel>הפעילות שלי</SectionLabel>
         <Card style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.lg }}>
           <StatBlock value={profile.total_donations} label="תרומות" />
           <StatBlock value={profile.total_units.toLocaleString()} label="מנות" />
@@ -217,11 +272,8 @@ export default function Profile() {
 
         {editing ? (
           <>
-            <View style={{ height: spacing.lg }} />
+            <SectionLabel>התפקידים שלי</SectionLabel>
             <Card>
-              <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 2 }}>
-                התפקידים שלי
-              </Txt>
               <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: 10 }}>
                 אפשר לבחור יותר מאחד
               </Txt>
@@ -254,11 +306,8 @@ export default function Profile() {
 
             {editIsRecipient ? (
               <>
-                <View style={{ height: spacing.lg }} />
+                <SectionLabel>סוג המקבל</SectionLabel>
                 <Card>
-                  <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 10 }}>
-                    סוג המקבל
-                  </Txt>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                     {RECIPIENT_TYPES.map((t) => (
                       <Pressable
@@ -276,21 +325,15 @@ export default function Profile() {
               </>
             ) : null}
 
-            <View style={{ height: spacing.lg }} />
+            <SectionLabel>{editNeedsCoverage ? 'אזורים שאני מכסה' : 'האזור שלי'}</SectionLabel>
             <Card>
-              <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 8 }}>
-                {editNeedsCoverage ? 'אזורים שאני מכסה' : 'האזור שלי'}
-              </Txt>
               <RegionPicker value={regions} onChange={setRegions} single={editIsRecipient && !editNeedsCoverage} />
             </Card>
           </>
         ) : profile.service_regions.length > 0 ? (
           <>
-            <View style={{ height: spacing.lg }} />
+            <SectionLabel>אזורים שאני מכסה</SectionLabel>
             <Card>
-              <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 8 }}>
-                אזורים שאני מכסה
-              </Txt>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {profile.service_regions.map((r) => (
                   <View key={r} style={[styles.chip, { backgroundColor: colors.brand50 }]}>
@@ -306,11 +349,8 @@ export default function Profile() {
 
         {badges.length > 0 ? (
           <>
-            <View style={{ height: spacing.lg }} />
+            <SectionLabel>תגים</SectionLabel>
             <Card>
-              <Txt variant="small" weight="bold" color={colors.textMuted} style={{ marginBottom: 8 }}>
-                תגים
-              </Txt>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {badges.map((b) => (
                   <View key={b.id} style={[styles.chip, { backgroundColor: '#FBF0DA' }]}>
@@ -325,7 +365,7 @@ export default function Profile() {
         ) : null}
 
         {editing ? (
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.lg }}>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.xl }}>
             <View style={{ flex: 1 }}>
               <Button title="ביטול" variant="ghost" onPress={() => setEditing(false)} />
             </View>
@@ -335,15 +375,18 @@ export default function Profile() {
           </View>
         ) : (
           <>
-            <Divider />
-            {profile.roles.includes('admin') ? (
-              <Button title="פאנל ניהול" icon="settings" onPress={() => router.push('/admin')} style={{ marginBottom: spacing.md }} />
-            ) : null}
-            <Button title="בדוק עדכונים" variant="secondary" icon="cloud-download" onPress={checkUpdates} loading={checkingUpdate} style={{ marginBottom: spacing.md }} />
-            <Txt variant="caption" color={colors.textMuted} center style={{ marginBottom: spacing.md }}>
+            {/* פעולות — שורות רשימה בסגנון iOS בתוך כרטיס לבן אחד */}
+            <SectionLabel>הגדרות</SectionLabel>
+            <Card style={{ padding: 0, overflow: 'hidden' }}>
+              {profile.roles.includes('admin') ? (
+                <Row icon="settings-outline" label="פאנל ניהול" onPress={() => router.push('/admin')} />
+              ) : null}
+              <Row icon="cloud-download-outline" label="בדוק עדכונים" onPress={checkUpdates} loading={checkingUpdate} />
+              <Row icon="log-out-outline" label="התנתקות" onPress={signOut} danger last />
+            </Card>
+            <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: spacing.lg }}>
               גרסה {Updates.runtimeVersion ?? '—'} · {Updates.updateId ? `OTA ${Updates.updateId.slice(0, 8)}` : 'build מקורי'}
             </Txt>
-            <Button title="התנתקות" variant="ghost" icon="log-out" onPress={signOut} />
           </>
         )}
       </ScrollView>
@@ -351,8 +394,10 @@ export default function Profile() {
   );
 }
 
-const styles = {
-  avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.brand50, alignItems: 'center' as const, justifyContent: 'center' as const },
+const styles = StyleSheet.create({
+  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg: { width: 96, height: 96, borderRadius: 48 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill },
-  editBtn: { position: 'absolute' as const, top: spacing.md, right: spacing.md, width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand50, alignItems: 'center' as const, justifyContent: 'center' as const },
-};
+  editBtn: { position: 'absolute', top: spacing.md, left: spacing.md, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: 14, backgroundColor: colors.card },
+});

@@ -10,22 +10,25 @@ import { useAuth } from '../../src/context/AuthContext';
 import { publishOffer } from '../../src/lib/api';
 import { pickAndUploadPhoto } from '../../src/lib/uploadPhoto';
 import type { Region } from '../../src/lib/regions';
-import { colors, spacing, radius } from '../../src/theme/tokens';
+import { colors, spacing, radius, shadow } from '../../src/theme/tokens';
 
 const FOOD_OPTIONS = ['מנות חמות', "סנדוויצ'ים", 'מים ושתייה', 'פירות וירקות', 'מנות קרב', 'חטיפים ומאפים'];
 const UNIT_OPTIONS = ['מנות', 'ארגזים', 'חבילות', 'כיכרות'];
 
-/** כותרת שלב עם עיגול ממוספר — מדריך את המשתמש בעמוד אחד פשוט. */
-function Section({ num, title, hint }: { num: number; title: string; hint?: string }) {
+/** תווית קבוצה בסגנון iOS grouped-list — תווית אפורה קטנה מעל כרטיס לבן. */
+function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <View style={{ marginTop: spacing.xl, marginBottom: spacing.md }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: colors.secondary, alignItems: 'center', justifyContent: 'center' }}>
-          <Txt weight="extrabold" color={colors.white} variant="small">{num}</Txt>
-        </View>
-        <Txt variant="h2" weight="bold">{title}</Txt>
-      </View>
-      {hint ? <Txt variant="caption" color={colors.textMuted} style={{ marginTop: 4 }}>{hint}</Txt> : null}
+    <Txt variant="caption" weight="bold" color={colors.textMuted} style={{ marginTop: spacing.lg, marginBottom: spacing.sm, marginRight: 4 }}>
+      {children}
+    </Txt>
+  );
+}
+
+/** כרטיס לבן קבוצתי (inset) על רקע אפור. */
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, ...shadow.card }}>
+      {children}
     </View>
   );
 }
@@ -119,7 +122,7 @@ export default function NewOffer() {
       <Header title="פרסום תרומה חדשה" onBack={() => safeBack()} />
       <Screen scroll>
         {/* תמונה — משדרג את המודעה (כמו יד2) */}
-        <Pressable onPress={addPhoto} disabled={uploadingPhoto} style={{ height: 170, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.brand50, borderWidth: photoUrl ? 0 : 1.5, borderColor: colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }}>
+        <Pressable onPress={addPhoto} disabled={uploadingPhoto} style={{ height: 170, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.brand50, borderWidth: photoUrl ? 0 : 1.5, borderColor: colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }}>
           {photoUrl ? (
             <>
               <Image source={{ uri: photoUrl }} style={{ width: '100%', height: '100%' }} />
@@ -141,59 +144,71 @@ export default function NewOffer() {
           )}
         </Pressable>
 
-        <Section num={1} title="מה תורמים?" />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
-          {FOOD_OPTIONS.map((f) => (
-            <Pill key={f} label={f} active={foodType === f} onPress={() => setFoodType(f)} />
-          ))}
-        </View>
-        <Field label="או כתבו סוג מזון אחר" value={foodType} onChangeText={setFoodType} placeholder="לדוגמה: סנדוויצ'ים" />
-
-        <Section num={2} title="כמה?" />
-        <Field label="כמות" value={quantity} onChangeText={setQuantity} keyboardType="number-pad" placeholder="לדוגמה: 50" />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {UNIT_OPTIONS.map((u) => (
-            <Pill key={u} label={u} active={unit === u} onPress={() => setUnit(u)} />
-          ))}
-        </View>
-
-        <Section num={3} title="מאיפה אוספים?" hint="הכי קל: לחצו על הכפתור והמיקום יימלא לבד." />
-        <Button title={coords ? 'המיקום שלי נשמר ✓' : 'השתמש במיקום שלי'} variant="secondary" icon="location" onPress={useMyLocation} style={{ marginBottom: spacing.md }} />
-        <Field label="עיר מוצא (לא חובה)" value={city} onChangeText={setCity} placeholder="לדוגמה: אשקלון" />
-
-        <Section num={4} title="שינוע" hint="האם תוכלו לשנע את התרומה בעצמכם?" />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Button title="כן, אביא בעצמי" icon="car" variant={selfCourier === true ? 'primary' : 'secondary'} onPress={() => setSelfCourier(true)} />
+        <GroupLabel>מה תורמים?</GroupLabel>
+        <Card>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.lg }}>
+            {FOOD_OPTIONS.map((f) => (
+              <Pill key={f} label={f} active={foodType === f} onPress={() => setFoodType(f)} />
+            ))}
           </View>
-          <View style={{ flex: 1 }}>
-            <Button title="לא, צריך שינוע" icon="cube" variant={selfCourier === false ? 'primary' : 'secondary'} onPress={() => setSelfCourier(false)} />
-          </View>
-        </View>
-        {selfCourier === false ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FBF0DA', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md }}>
-            <Ionicons name="information-circle" size={18} color={colors.warning} />
-            <Txt variant="caption" color={colors.textMuted} style={{ flex: 1 }}>
-              התרומה תופיע במפה עם סימון "צריך שינוע", ונהגים מתנדבים באזור יקבלו התראה 🚗
-            </Txt>
-          </View>
-        ) : null}
+          <Field label="או כתבו סוג מזון אחר" value={foodType} onChangeText={setFoodType} placeholder="לדוגמה: סנדוויצ'ים" />
+        </Card>
 
-        {selfCourier !== null ? (
-          <>
-            <Txt variant="small" weight="medium" color={colors.textMuted} style={{ marginTop: spacing.lg, marginBottom: 8 }}>
-              {selfCourier ? 'לאילו אזורים תוכלו להגיע?' : 'באיזה אזור נמצאת התרומה?'}
-            </Txt>
-            <RegionPicker value={regions} onChange={setRegions} single={!selfCourier} />
-          </>
-        ) : null}
+        <GroupLabel>כמה?</GroupLabel>
+        <Card>
+          <Field label="כמות" value={quantity} onChangeText={setQuantity} keyboardType="number-pad" placeholder="לדוגמה: 50" />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.md }}>
+            {UNIT_OPTIONS.map((u) => (
+              <Pill key={u} label={u} active={unit === u} onPress={() => setUnit(u)} />
+            ))}
+          </View>
+        </Card>
 
-        <Section num={5} title="עוד פרטים (לא חובה)" />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
-          <Toggle label="כשר" value={kosher} onToggle={() => setKosher(!kosher)} />
-          <Toggle label="צמחוני" value={veg} onToggle={() => setVeg(!veg)} />
-        </View>
-        <Field label="הערות" value={notes} onChangeText={setNotes} multiline placeholder="לדוגמה: מוכן לאיסוף מ-14:00" />
+        <GroupLabel>מאיפה אוספים?</GroupLabel>
+        <Card>
+          <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: spacing.md }}>הכי קל: לחצו על הכפתור והמיקום יימלא לבד.</Txt>
+          <Button title={coords ? 'המיקום שלי נשמר ✓' : 'השתמש במיקום שלי'} variant="secondary" icon="location" onPress={useMyLocation} style={{ marginBottom: spacing.md }} />
+          <Field label="עיר מוצא (לא חובה)" value={city} onChangeText={setCity} placeholder="לדוגמה: אשקלון" />
+        </Card>
+
+        <GroupLabel>שינוע</GroupLabel>
+        <Card>
+          <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: spacing.md }}>האם תוכלו לשנע את התרומה בעצמכם?</Txt>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Button title="כן, אביא בעצמי" icon="car" variant={selfCourier === true ? 'primary' : 'secondary'} onPress={() => setSelfCourier(true)} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button title="לא, צריך שינוע" icon="cube" variant={selfCourier === false ? 'primary' : 'secondary'} onPress={() => setSelfCourier(false)} />
+            </View>
+          </View>
+          {selfCourier === false ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FBF0DA', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md }}>
+              <Ionicons name="information-circle" size={18} color={colors.warning} />
+              <Txt variant="caption" color={colors.textMuted} style={{ flex: 1 }}>
+                התרומה תופיע במפה עם סימון "צריך שינוע", ונהגים מתנדבים באזור יקבלו התראה 🚗
+              </Txt>
+            </View>
+          ) : null}
+
+          {selfCourier !== null ? (
+            <>
+              <Txt variant="small" weight="medium" color={colors.textMuted} style={{ marginTop: spacing.lg, marginBottom: 8 }}>
+                {selfCourier ? 'לאילו אזורים תוכלו להגיע?' : 'באיזה אזור נמצאת התרומה?'}
+              </Txt>
+              <RegionPicker value={regions} onChange={setRegions} single={!selfCourier} />
+            </>
+          ) : null}
+        </Card>
+
+        <GroupLabel>עוד פרטים (לא חובה)</GroupLabel>
+        <Card>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.lg }}>
+            <Toggle label="כשר" value={kosher} onToggle={() => setKosher(!kosher)} />
+            <Toggle label="צמחוני" value={veg} onToggle={() => setVeg(!veg)} />
+          </View>
+          <Field label="הערות" value={notes} onChangeText={setNotes} multiline placeholder="לדוגמה: מוכן לאיסוף מ-14:00" />
+        </Card>
 
         <Button title="פרסם תרומה" icon="gift" onPress={submit} loading={loading} style={{ marginTop: spacing.xl }} />
       </Screen>

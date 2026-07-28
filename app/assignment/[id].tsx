@@ -1,16 +1,16 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Alert, Linking, Pressable, Image } from 'react-native';
+import { View, ScrollView, Alert, Linking, Pressable, Image, StyleSheet } from 'react-native';
 import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Header, Txt, Card, Button, StatusBadge, Divider } from '../../src/components/ui';
+import { Header, Txt, Button, StatusBadge } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase';
 import { revealPhone, advanceAssignment, submitRating, claimDelivery, releaseDelivery } from '../../src/lib/api';
 import { statusUI, LEVEL_META, type AssignmentStatus, type ReputationLevel } from '../../src/lib/domain';
 import { regionLabel, type Region } from '../../src/lib/regions';
-import { colors, spacing, radius } from '../../src/theme/tokens';
+import { colors, spacing, radius, shadow, statusTint } from '../../src/theme/tokens';
 
 type Assignment = {
   id: string;
@@ -201,142 +201,168 @@ export default function AssignmentDetail() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <Header title="פרטי שיבוץ" onBack={() => safeBack()} />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
-        <Card accent={ui.color}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}>
+        {/* כרטיס סטטוס — לבן נקי, פריט + באדג' סטטוס כ-pill + אזור */}
+        <View style={styles.card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <StatusBadge color={ui.color} tint={ui.tint} icon={ui.icon} size={48} />
             <View style={{ flex: 1 }}>
-              <Txt variant="h2" weight="bold">
+              <Txt variant="h2" weight="bold" numberOfLines={2}>
                 {it ? `${it.quantity} ${it.unit_label} · ${it.food_type}` : 'תרומה'}
               </Txt>
-              <Txt variant="caption" color={ui.color} weight="bold">
-                {ui.label} · אזור {regionLabel(a.general_destination)}
-              </Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                <View style={[styles.statusPill, { backgroundColor: ui.tint }]}>
+                  <Txt variant="caption" weight="bold" color={ui.color}>{ui.label}</Txt>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                  <Txt variant="caption" color={colors.textMuted}>אזור {regionLabel(a.general_destination)}</Txt>
+                </View>
+              </View>
             </View>
           </View>
-        </Card>
+        </View>
 
         {/* כרטיס התורם (בסגנון גט — תמונה/ראשי-תיבות, שם, מוניטין, דירוג, נקודת איסוף). לחיצה → פרופיל התורם */}
         {donor ? (
-          <Card onPress={() => router.push(`/user/${donor.id}` as any)} style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            {donor.photo_url ? (
-              <Image source={{ uri: donor.photo_url }} style={{ width: 58, height: 58, borderRadius: 29 }} />
-            ) : (
-              <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
-                <Txt variant="h1" weight="extrabold" color={colors.brand700}>{donor.full_name?.trim()?.charAt(0) ?? '?'}</Txt>
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <Txt variant="caption" color={colors.textMuted}>התורם</Txt>
-              <Txt variant="h2" weight="bold">{donor.full_name ?? 'תורם'}</Txt>
-              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3 }}>
-                {dLevel ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.brand50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill }}>
-                    <Ionicons name="shield-checkmark" size={11} color={colors.brand700} />
-                    <Txt variant="caption" weight="bold" color={colors.brand700}>Level {dLevel.n} · {dLevel.label}</Txt>
+          <>
+            <Txt variant="caption" weight="bold" color={colors.textMuted} style={styles.sectionLabel}>התורם</Txt>
+            <Pressable onPress={() => router.push(`/user/${donor.id}` as any)} style={({ pressed }) => [styles.card, styles.row, pressed && { opacity: 0.6 }]}>
+              {donor.photo_url ? (
+                <Image source={{ uri: donor.photo_url }} style={{ width: 58, height: 58, borderRadius: 29 }} />
+              ) : (
+                <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+                  <Txt variant="h1" weight="extrabold" color={colors.brand700}>{donor.full_name?.trim()?.charAt(0) ?? '?'}</Txt>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Txt variant="h2" weight="bold">{donor.full_name ?? 'תורם'}</Txt>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3 }}>
+                  {dLevel ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.brand50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill }}>
+                      <Ionicons name="shield-checkmark" size={11} color={colors.brand700} />
+                      <Txt variant="caption" weight="bold" color={colors.brand700}>Level {dLevel.n} · {dLevel.label}</Txt>
+                    </View>
+                  ) : null}
+                  {donor.rating_count > 0 ? (
+                    <Txt variant="caption" weight="bold" color={colors.warning}>⭐ {donor.rating_avg} ({donor.rating_count})</Txt>
+                  ) : (
+                    <Txt variant="caption" color={colors.textMuted}>תורם חדש</Txt>
+                  )}
+                </View>
+                {a.offer?.origin_city ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <Ionicons name="location" size={13} color={colors.secondary} />
+                    <Txt variant="caption" color={colors.textMuted}>נקודת איסוף: {a.offer.origin_city}</Txt>
                   </View>
                 ) : null}
-                {donor.rating_count > 0 ? (
-                  <Txt variant="caption" weight="bold" color={colors.warning}>⭐ {donor.rating_avg} ({donor.rating_count})</Txt>
-                ) : (
-                  <Txt variant="caption" color={colors.textMuted}>תורם חדש</Txt>
-                )}
               </View>
-              {a.offer?.origin_city ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                  <Ionicons name="location" size={13} color={colors.secondary} />
-                  <Txt variant="caption" color={colors.textMuted}>נקודת איסוף: {a.offer.origin_city}</Txt>
-                </View>
-              ) : null}
-            </View>
-            <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
-          </Card>
+              <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
+            </Pressable>
+          </>
         ) : null}
 
         {/* Actions */}
-        <View style={{ height: spacing.lg }} />
         {a.status === 'waiting_courier' ? (
           isDriver ? (
-            <>
+            <View style={styles.actionBlock}>
               <Button title="אני לוקח את המשלוח" icon="car" onPress={takeDelivery} />
-              <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: 6 }}>
+              <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: spacing.sm }}>
                 אתם מתחייבים לאסוף מהתורם ולמסור למבקש. את הכתובת המדויקת תתאמו בטלפון.
               </Txt>
-            </>
+            </View>
           ) : (
-            <Card style={{ backgroundColor: '#FBF0DA' }}>
+            <View style={[styles.card, styles.actionBlock, { backgroundColor: statusTint.warning, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }]}>
+              <Ionicons name="time-outline" size={18} color={colors.warning} />
               <Txt variant="small" weight="bold" color={colors.warning}>
                 ממתין שנהג מתנדב ייקח את המשלוח
               </Txt>
-            </Card>
+            </View>
           )
         ) : null}
         {next ? (
-          <>
+          <View style={styles.actionBlock}>
             <Button title={next.label} icon={next.icon as any} onPress={() => onNext(next)} />
-            <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: 6 }}>
+            <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: spacing.sm }}>
               {next.hint}
             </Txt>
-          </>
+          </View>
         ) : null}
         {/* נהג שלקח את המשלוח (לפני איסוף) יכול לבטל → המשלוח חוזר להמתנה לשינוע */}
         {a.status === 'courier_assigned' && a.courier_id === profile?.id ? (
           <Button title="בטל את המשלוח" variant="ghost" icon="close-circle" onPress={doRelease} style={{ marginTop: spacing.md }} />
         ) : null}
-        {a.status === 'confirmed' ? <Button title="דרג את הצד השני" icon="star" onPress={rate} /> : null}
+        {a.status === 'confirmed' ? (
+          <View style={styles.actionBlock}>
+            <Button title="דרג את הצד השני" icon="star" onPress={rate} />
+          </View>
+        ) : null}
 
         {/* Reveal phone */}
         {canReveal ? (
           <>
-            <View style={{ height: spacing.lg }} />
             {contacts.length === 0 ? (
-              <Button title="הצג פרטי קשר" variant="secondary" icon="call" onPress={doReveal} />
+              <View style={styles.actionBlock}>
+                <Button title="הצג פרטי קשר" variant="secondary" icon="call" onPress={doReveal} />
+              </View>
             ) : (
-              contacts.map((c, i) => (
-                <Pressable key={i} onPress={() => Linking.openURL(`tel:${c.phone}`)}>
-                  <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="call" size={20} color={colors.brand700} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Txt weight="bold">{c.name}</Txt>
-                      <Txt variant="caption" color={colors.textMuted}>
-                        {ROLE_LABEL[c.role] ?? c.role} · {c.phone}
-                      </Txt>
-                    </View>
-                    <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
-                  </Card>
-                </Pressable>
-              ))
+              <>
+                <Txt variant="caption" weight="bold" color={colors.textMuted} style={styles.sectionLabel}>פרטי קשר</Txt>
+                <View style={styles.card}>
+                  {contacts.map((c, i) => (
+                    <Pressable key={i} onPress={() => Linking.openURL(`tel:${c.phone}`)} style={({ pressed }) => [styles.listRow, i > 0 && styles.listSeparator, pressed && { opacity: 0.6 }]}>
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="call" size={18} color={colors.brand700} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Txt weight="bold">{c.name}</Txt>
+                        <Txt variant="caption" color={colors.textMuted}>
+                          {ROLE_LABEL[c.role] ?? c.role} · {c.phone}
+                        </Txt>
+                      </View>
+                      <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
+                    </Pressable>
+                  ))}
+                </View>
+              </>
             )}
-            <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: 4 }}>
+            <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: spacing.sm }}>
               את נקודת המסירה המדויקת תאמו בטלפון
             </Txt>
           </>
         ) : null}
 
         {/* Timeline */}
-        <Divider />
-        <Txt variant="h2" weight="bold" style={{ marginBottom: spacing.md }}>
-          ציר זמן
-        </Txt>
-        {events.map((e, idx) => (
-          <View key={e.id} style={{ flexDirection: 'row', gap: 12, marginBottom: 4 }}>
-            <View style={{ alignItems: 'center' }}>
-              <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand700 }} />
-              {idx < events.length - 1 ? <View style={{ width: 2, flex: 1, backgroundColor: colors.border, minHeight: 24 }} /> : null}
+        <Txt variant="caption" weight="bold" color={colors.textMuted} style={styles.sectionLabel}>ציר זמן</Txt>
+        <View style={styles.card}>
+          {events.map((e, idx) => (
+            <View key={e.id} style={{ flexDirection: 'row', gap: spacing.md }}>
+              <View style={{ alignItems: 'center', width: 12 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.brand700, marginTop: 3 }} />
+                {idx < events.length - 1 ? <View style={{ width: 2, flex: 1, backgroundColor: colors.border, minHeight: 24 }} /> : null}
+              </View>
+              <View style={{ flex: 1, paddingBottom: idx < events.length - 1 ? spacing.md : 0 }}>
+                <Txt variant="small" weight="medium">
+                  {e.type === 'transport_requested' && e.payload?.released ? 'המשלוח בוטל ע"י הנהג — חזר להמתנה לשינוע' : EVENT_LABEL[e.type] ?? e.type}
+                </Txt>
+                <Txt variant="caption" color={colors.textMuted}>
+                  {new Date(e.created_at).toLocaleString('he-IL')}
+                </Txt>
+              </View>
             </View>
-            <View style={{ flex: 1, paddingBottom: spacing.md }}>
-              <Txt variant="small" weight="medium">
-                {e.type === 'transport_requested' && e.payload?.released ? 'המשלוח בוטל ע"י הנהג — חזר להמתנה לשינוע' : EVENT_LABEL[e.type] ?? e.type}
-              </Txt>
-              <Txt variant="caption" color={colors.textMuted}>
-                {new Date(e.created_at).toLocaleString('he-IL')}
-              </Txt>
-            </View>
-          </View>
-        ))}
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, ...shadow.card },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  sectionLabel: { marginTop: spacing.xl, marginBottom: spacing.sm, marginHorizontal: spacing.xs },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill },
+  actionBlock: { marginTop: spacing.xl },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  listSeparator: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
+});
