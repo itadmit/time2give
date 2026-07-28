@@ -85,6 +85,7 @@ export default function Feed() {
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [needs, setNeeds] = useState<NeedRow[]>([]);
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [cityLabel, setCityLabel] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [fabOpen, setFabOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -96,9 +97,14 @@ export default function Feed() {
         if (status !== 'granted') return;
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const geo = await Location.reverseGeocodeAsync({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        const g = geo[0];
+        setCityLabel(g?.city || g?.subregion || g?.region || null);
       } catch {}
     })();
   }, []);
+  // תווית מיקום: עיר מה-GPS, אחרת האזור מהפרופיל
+  const locLabel = cityLabel ?? (profile?.service_regions?.[0] ? regionLabel(profile.service_regions[0]) : null);
 
   const load = useCallback(async () => {
     const { data: off } = await supabase
@@ -219,7 +225,10 @@ export default function Feed() {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Txt variant="caption" color={colors.textMuted}>{isGuest ? 'שלום 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}</Txt>
-            <Txt weight="extrabold" variant="h2">תרומות באזור שלך</Txt>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="location" size={16} color={colors.secondary} />
+              <Txt weight="extrabold" variant="h2">{locLabel ? `סביבך · ${locLabel}` : 'תרומות באזור שלך'}</Txt>
+            </View>
           </View>
           <Pressable onPress={() => setHelpOpen(true)} hitSlop={10} style={styles.iconBtn}>
             <Ionicons name="help-circle-outline" size={22} color={colors.brand700} />
