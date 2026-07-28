@@ -17,6 +17,7 @@ import { LocationPrompt } from '../src/components/LocationPrompt';
 import { RoleWizard } from '../src/components/RoleWizard';
 import { UpdateReadyBanner } from '../src/components/UpdateReadyBanner';
 import { AppAlertHost } from '../src/components/AppAlert';
+import { FavoritesProvider } from '../src/context/FavoritesContext';
 import { useOTAUpdates } from '../src/lib/useOTAUpdates';
 import { colors } from '../src/theme/tokens';
 
@@ -167,7 +168,9 @@ export default function RootLayout() {
       <View style={{ flex: 1, direction: 'rtl' }}>
         <AuthProvider>
           <NotificationsProvider>
-            <AuthGate />
+            <FavoritesProvider>
+              <AuthGate />
+            </FavoritesProvider>
           </NotificationsProvider>
         </AuthProvider>
         <UpdateReadyBanner />

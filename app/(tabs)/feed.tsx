@@ -11,6 +11,7 @@ import { MapBoundary } from '../../src/components/MapBoundary';
 import { OffersMap, type MapOffer } from '../../src/components/OffersMap';
 import { useAuth } from '../../src/context/AuthContext';
 import { useNotifications } from '../../src/context/NotificationsContext';
+import { useFavorites } from '../../src/context/FavoritesContext';
 import { LEVEL_META, RECIPIENT_TYPE_LABELS, type ReputationLevel, type RecipientType } from '../../src/lib/domain';
 import { claimOffer, commitToNeed } from '../../src/lib/api';
 import { regionLabel, REGION_CENTERS, type Region } from '../../src/lib/regions';
@@ -74,6 +75,7 @@ function timeAgo(iso: string): string {
 export default function Feed() {
   const { profile, session } = useAuth();
   const { unread } = useNotifications();
+  const { isSaved, toggle: toggleFav } = useFavorites();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isGuest = !session || !profile;
@@ -87,7 +89,6 @@ export default function Feed() {
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [cityLabel, setCityLabel] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [fabOpen, setFabOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
@@ -206,11 +207,6 @@ export default function Feed() {
   const selected = items.find((i) => i.id === selectedId) ?? null;
   const accent = tab === 'offers' ? colors.brand700 : colors.secondary;
 
-  const fabAction = (path: string) => {
-    setFabOpen(false);
-    router.push((isGuest ? '/(auth)/phone' : path) as any);
-  };
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: colors.white }}>
@@ -323,6 +319,11 @@ export default function Feed() {
                     <View style={[styles.cardBadge, { backgroundColor: i.badgeColor }]}>
                       <Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 10 }}>{tab === 'offers' && i.needsTransport ? '🚗 ' : ''}{i.badge}</Txt>
                     </View>
+                    {tab === 'offers' ? (
+                      <Pressable onPress={() => toggleFav(i.id)} hitSlop={8} style={styles.heart}>
+                        <Ionicons name={isSaved(i.id) ? 'heart' : 'heart-outline'} size={16} color={isSaved(i.id) ? colors.danger : colors.white} />
+                      </Pressable>
+                    ) : null}
                   </View>
                   <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: 2 }}>
                     <View>
@@ -347,39 +348,6 @@ export default function Feed() {
           </ScrollView>
         )}
       </View>
-
-      {/* כפתור + מרכזי */}
-      <Pressable onPress={() => setFabOpen(true)} style={[styles.fab, { bottom: insets.bottom + 16 }]}>
-        <Ionicons name="add" size={30} color={colors.white} />
-      </Pressable>
-
-      {/* גיליון פעולות ה-+ */}
-      <Modal visible={fabOpen} transparent animationType="fade" onRequestClose={() => setFabOpen(false)}>
-        <Pressable style={styles.sheetOverlay} onPress={() => setFabOpen(false)}>
-          <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]} onPress={(e) => e.stopPropagation()}>
-            <View style={{ alignItems: 'center', marginBottom: spacing.md }}>
-              <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: colors.border }} />
-            </View>
-            <Txt variant="h2" weight="extrabold" center style={{ marginBottom: spacing.lg }}>מה תרצו לעשות?</Txt>
-            <Pressable onPress={() => fabAction('/offer/new')} style={[styles.sheetOpt, { backgroundColor: colors.brand50 }]}>
-              <View style={[styles.sheetIcon, { backgroundColor: colors.brand700 }]}><Ionicons name="gift" size={22} color={colors.white} /></View>
-              <View style={{ flex: 1 }}>
-                <Txt weight="bold">פרסם תרומה</Txt>
-                <Txt variant="caption" color={colors.textMuted}>יש לי מזון לתרום</Txt>
-              </View>
-              <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
-            </Pressable>
-            <Pressable onPress={() => fabAction('/need/new')} style={[styles.sheetOpt, { backgroundColor: '#E7F6EE', marginTop: spacing.md }]}>
-              <View style={[styles.sheetIcon, { backgroundColor: colors.secondary }]}><Ionicons name="megaphone" size={22} color={colors.white} /></View>
-              <View style={{ flex: 1 }}>
-                <Txt weight="bold">בקש תרומה</Txt>
-                <Txt variant="caption" color={colors.textMuted}>אני צריך תרומה עבור היחידה</Txt>
-              </View>
-              <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -406,17 +374,11 @@ const styles = StyleSheet.create({
 
   mapFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand50 },
 
-  card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.card, borderRadius: 20, padding: spacing.md, marginBottom: 12, ...shadow.card },
-  cardPhoto: { width: 84, height: 84, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface },
+  card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, marginBottom: 12, ...shadow.card },
+  cardPhoto: { width: 84, height: 84, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surface },
   cardBadge: { position: 'absolute', bottom: 6, right: 6, paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.pill },
+  heart: { position: 'absolute', top: 5, left: 5, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' },
 
-  fab: { position: 'absolute', alignSelf: 'center', width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand700, alignItems: 'center', justifyContent: 'center', ...shadow.card, shadowOpacity: 0.25, elevation: 8 },
-
-  sheetOverlay: { flex: 1, backgroundColor: 'rgba(11,31,51,0.5)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  sheetOpt: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.lg, padding: spacing.lg },
-  sheetIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
-
-  detailCard: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.md, backgroundColor: colors.card, borderRadius: 24, padding: spacing.lg, ...shadow.card },
+  detailCard: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, ...shadow.card },
   detailClose: { position: 'absolute', top: spacing.md, right: spacing.md, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
 });

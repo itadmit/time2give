@@ -66,29 +66,21 @@ export function Screen({ children, scroll, style }: { children: React.ReactNode;
   );
 }
 
-/* ── Header (כחול, פינות תחתונות מעוגלות) ── */
+/* ── Header — כותרת גדולה בסגנון iOS (Large Title) ── */
 export function Header({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack?: () => void }) {
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.brand700 }}>
-      <View style={styles.header}>
-        {onBack ? (
-          <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
-            <Ionicons name="chevron-forward" size={26} color={colors.white} />
-          </Pressable>
-        ) : (
-          <View style={styles.backBtn} />
-        )}
-        <View style={{ flex: 1 }}>
-          <Txt variant="h1" weight="extrabold" color={colors.white} center>
-            {title}
-          </Txt>
-          {subtitle ? (
-            <Txt variant="caption" color={colors.brand100} center>
-              {subtitle}
-            </Txt>
-          ) : null}
-        </View>
-        <View style={styles.backBtn} />
+    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.card }}>
+      {onBack ? (
+        <Pressable onPress={onBack} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', height: 40, paddingHorizontal: spacing.sm }}>
+          <Ionicons name="chevron-forward" size={26} color={colors.brand700} />
+          <Txt variant="body" color={colors.brand700} style={{ marginRight: -2 }}>חזרה</Txt>
+        </Pressable>
+      ) : (
+        <View style={{ height: spacing.sm }} />
+      )}
+      <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: onBack ? 0 : spacing.xs }}>
+        <Txt variant="display" weight="extrabold">{title}</Txt>
+        {subtitle ? <Txt variant="caption" color={colors.textMuted} style={{ marginTop: 2 }}>{subtitle}</Txt> : null}
       </View>
     </SafeAreaView>
   );
@@ -146,14 +138,16 @@ export function Button({
 }
 
 /* ── Card ── */
+// accent נשמר לתאימות אחורה אך לא מוצג (הפס הצבעוני היה "וובי"). כרטיס בסגנון iOS grouped.
 export function Card({ children, style, onPress, accent }: { children: React.ReactNode; style?: ViewStyle; onPress?: () => void; accent?: string }) {
-  const content = (
-    <View style={[styles.card, shadow.card, style]}>
-      {accent ? <View style={[styles.accent, { backgroundColor: accent }]} /> : null}
-      {children}
-    </View>
-  );
-  return onPress ? <Pressable onPress={onPress}>{content}</Pressable> : content;
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={({ pressed }) => [styles.card, shadow.card, pressed && { opacity: 0.6 }, style]}>
+        {children}
+      </Pressable>
+    );
+  }
+  return <View style={[styles.card, shadow.card, style]}>{children}</View>;
 }
 
 /* ── Pill (filter tab) ── */
@@ -270,7 +264,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   btn: { height: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.lg },
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg },
   accent: { position: 'absolute', top: 0, right: 0, bottom: 0, width: 5 },
   pill: { paddingHorizontal: spacing.lg, paddingVertical: 8, borderRadius: radius.pill },
   input: {

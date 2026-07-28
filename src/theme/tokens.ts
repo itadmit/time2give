@@ -24,13 +24,14 @@ export const colors = {
   warning: '#F59E0B',
   danger: '#DC2626',
 
-  // Neutrals
+  // Neutrals — פלטת iOS מערכתית (native feel)
   bg: '#FFFFFF',
-  surface: '#F8FAFC', // רקע העמוד (Background)
-  card: '#FFFFFF', // רקע כרטיס (Surface)
-  text: '#1F2937',
-  textMuted: '#6B7280',
-  border: '#E5E7EB',
+  surface: '#F2F2F7', // systemGroupedBackground — רקע עמוד אפור עדין
+  card: '#FFFFFF', // secondarySystemGroupedBackground — רקע שורה/כרטיס
+  text: '#1C1C1E', // label
+  textMuted: '#8E8E93', // secondaryLabel
+  border: '#E5E5EA', // separator (opaque)
+  separator: '#C6C6C8', // hairline מפריד בין שורות
 
   white: '#FFFFFF',
   black: '#000000',
@@ -72,9 +73,9 @@ export const statusTint: Record<string, string> = {
 };
 
 export const radius = {
-  sm: 10,
-  md: 14,
-  lg: 20, // כרטיסים
+  sm: 8,
+  md: 12,
+  lg: 14, // כרטיסים (iOS grouped ~10-14)
   pill: 999,
 } as const;
 
@@ -104,12 +105,13 @@ export const fontSize = {
   caption: 13,
 } as const;
 
+// צל עדין מאוד — iOS grouped lists כמעט ללא צל (ההפרדה נעשית ע"י רקע אפור + hairline)
 export const shadow = {
   card: {
-    shadowColor: '#0B1F33',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
 } as const;
