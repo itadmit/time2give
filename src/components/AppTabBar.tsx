@@ -38,7 +38,7 @@ export function AppTabBar({ state, navigation, onAdd }: { state: any; navigation
   };
 
   return (
-    <View style={[styles.bar, { paddingBottom: insets.bottom, height: 54 + insets.bottom }]}>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {renderTab('feed')}
       {renderTab('activity')}
       <View style={styles.item}>
@@ -53,8 +53,8 @@ export function AppTabBar({ state, navigation, onAdd }: { state: any; navigation
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator, alignItems: 'flex-start' },
-  item: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 7 },
+  bar: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator, paddingTop: 8 },
+  item: { flex: 1, alignItems: 'center', justifyContent: 'flex-start' },
   plus: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: colors.brand700,
     alignItems: 'center', justifyContent: 'center', marginTop: -16,
