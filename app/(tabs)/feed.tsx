@@ -1,91 +1,74 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Pressable, StyleSheet, Alert, Animated, Easing, ScrollView } from 'react-native';
-import { appAlert } from '../../src/components/AppAlert';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Pressable, StyleSheet, ScrollView, Image, Modal, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { Txt, Button, EmptyState } from '../../src/components/ui';
+import { appAlert } from '../../src/components/AppAlert';
 import { HelpModal } from '../../src/components/HelpModal';
 import { MapBoundary } from '../../src/components/MapBoundary';
 import { OffersMap, type MapOffer } from '../../src/components/OffersMap';
 import { useAuth } from '../../src/context/AuthContext';
 import { useNotifications } from '../../src/context/NotificationsContext';
-import { ROLE_LABELS, LEVEL_META, RECIPIENT_TYPE_LABELS, type ReputationLevel, type RecipientType } from '../../src/lib/domain';
+import { LEVEL_META, RECIPIENT_TYPE_LABELS, type ReputationLevel, type RecipientType } from '../../src/lib/domain';
 import { claimOffer, commitToNeed } from '../../src/lib/api';
 import { regionLabel, REGION_CENTERS, type Region } from '../../src/lib/regions';
 import { haversineKm, formatKm } from '../../src/lib/geo';
 import { supabase } from '../../src/lib/supabase';
 import { colors, spacing, radius, shadow } from '../../src/theme/tokens';
 
-type FeedEvent = { id: number; type: string; payload: any; created_at: string };
 type OfferRow = {
   id: string; food_type: string; quantity: number; unit_label: string;
-  kosher: boolean; vegetarian: boolean; notes: string | null;
+  kosher: boolean; vegetarian: boolean; notes: string | null; photo_url: string | null;
   origin_city: string | null; origin_lat: number | null; origin_lng: number | null;
-  donor_name: string; donor_level: ReputationLevel; donor_rating: number; donor_is_courier: boolean;
+  donor_name: string; donor_photo: string | null; donor_level: ReputationLevel; donor_rating: number; donor_is_courier: boolean;
+  created_at: string;
 };
 type NeedRow = {
   id: string; region: Region; food_type: string; quantity: number; unit_label: string;
-  needed_at: string | null; notes: string | null; recipient_type: RecipientType; display_name: string | null;
-};
-type DeliveryRow = {
-  id: string; general_destination: Region;
-  need: { food_type: string; quantity: number; unit_label: string } | null;
-  offer: { food_type: string; quantity: number; unit_label: string; origin_lat: number | null; origin_lng: number | null; origin_city: string | null } | null;
+  notes: string | null; recipient_type: RecipientType; display_name: string | null; created_at: string;
 };
 
-// 'donate' = תורם (רואה בקשות) · 'receive' = מבקש (רואה תרומות) · 'drive' = נהג (נסיעות ממתינות)
-type AppMode = 'donate' | 'receive' | 'drive';
-type ViewMode = 'map' | 'list';
+type Tab = 'offers' | 'needs';
+type ViewMode = 'list' | 'map';
 
-const MODE_DEF: Record<AppMode, { label: string; icon: keyof typeof Ionicons.glyphMap; accent: string }> = {
-  donate: { label: 'לתרום', icon: 'gift', accent: colors.brand700 },
-  receive: { label: 'לבקש', icon: 'megaphone', accent: colors.secondary },
-  drive: { label: 'להסיע', icon: 'car', accent: colors.warning },
-};
+const CATEGORIES: { key: string; label: string }[] = [
+  { key: 'all', label: 'הכל' },
+  { key: 'מנות', label: 'מנות חמות' },
+  { key: 'כריכ', label: 'כריכים' },
+  { key: 'סנדוויצ', label: 'כריכים' },
+  { key: 'שתי', label: 'שתייה' },
+  { key: 'מים', label: 'שתייה' },
+  { key: 'מאפ', label: 'מאפים' },
+  { key: 'עוג', label: 'מאפים' },
+  { key: 'פיר', label: 'פירות וירקות' },
+  { key: 'ירק', label: 'פירות וירקות' },
+  { key: 'חטיף', label: 'חטיפים' },
+];
+// קטגוריות ייחודיות לתצוגה (label ראשון לכל תווית)
+const CHIP_CATS = [
+  { key: 'all', label: 'הכל', match: [] as string[] },
+  { key: 'hot', label: 'מנות חמות', match: ['מנות', 'חמ', 'מרק', 'שניצל', 'ארוח'] },
+  { key: 'sandwich', label: 'כריכים', match: ['כריכ', 'סנדוויצ', 'פיתה', 'פית'] },
+  { key: 'drink', label: 'שתייה', match: ['שתי', 'מים', 'משק'] },
+  { key: 'bakery', label: 'מאפים', match: ['מאפ', 'עוג', 'לחם', 'דבש', 'מתוק'] },
+  { key: 'fruit', label: 'פירות/ירקות', match: ['פיר', 'ירק', 'סלט'] },
+  { key: 'snack', label: 'חטיפים', match: ['חטיף', 'אנרג'] },
+];
 
-type Item = {
-  id: string; foodType: string; quantity: number; unitLabel: string; subtitle: string;
-  lat: number | null; lng: number | null; km: number | null;
-  badge?: string; badgeColor?: string; needsTransport?: boolean;
-  actLabel: string; act: () => void;
-};
-
-const ENCOURAGE = ['כל תרומה עושה הבדל 💙', 'יחד תומכים במי שנותן מעצמו', 'תודה שאתם חלק מהקהילה', 'כל מנה מגיעה למי שצריך'];
-
-/** טיקר עדכונים מתחלף: שורה שדוהה פנימה ועולה, ואז נעלמת כלפי מעלה. */
-function ActivityTicker({ items }: { items: string[] }) {
-  const [idx, setIdx] = useState(0);
-  const opacity = useRef(new Animated.Value(0)).current;
-  const ty = useRef(new Animated.Value(10)).current;
-  useEffect(() => {
-    if (items.length === 0) return;
-    let timer: ReturnType<typeof setTimeout>;
-    opacity.setValue(0); ty.setValue(10);
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 420, useNativeDriver: true }),
-      Animated.timing(ty, { toValue: 0, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-    ]).start();
-    if (items.length > 1) {
-      timer = setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(opacity, { toValue: 0, duration: 320, useNativeDriver: true }),
-          Animated.timing(ty, { toValue: -10, duration: 320, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
-        ]).start(({ finished }) => { if (finished) setIdx((i) => (i + 1) % items.length); });
-      }, 3200);
-    }
-    return () => clearTimeout(timer);
-  }, [idx, items.length]);
-  if (items.length === 0) return null;
-  return (
-    <View style={styles.communityChip}>
-      <Ionicons name="ribbon" size={16} color={colors.success} />
-      <Animated.View style={{ flex: 1, opacity, transform: [{ translateY: ty }] }}>
-        <Txt variant="caption" weight="medium" numberOfLines={1}>{items[idx % items.length]}</Txt>
-      </Animated.View>
-    </View>
-  );
+function foodIcon(food: string): keyof typeof Ionicons.glyphMap {
+  if (/מים|שתי|משק/.test(food)) return 'water';
+  if (/מאפ|עוג|לחם|דבש/.test(food)) return 'cafe';
+  if (/פיר|ירק|סלט/.test(food)) return 'nutrition';
+  if (/כריכ|סנדוויצ|פית/.test(food)) return 'fast-food';
+  return 'flame';
+}
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 3600) return `לפני ${Math.max(1, Math.round(diff / 60))} דק׳`;
+  if (diff < 86400) return `לפני ${Math.round(diff / 3600)} שע׳`;
+  return `לפני ${Math.round(diff / 86400)} ימים`;
 }
 
 export default function Feed() {
@@ -95,37 +78,17 @@ export default function Feed() {
   const insets = useSafeAreaInsets();
   const isGuest = !session || !profile;
 
-  const roles = profile?.roles ?? [];
-  const isDonor = roles.includes('donor');
-  const isRecipient = roles.includes('recipient');
-  const isDriver = roles.includes('courier') || roles.includes('coordinator');
-
-  // המצבים שמוצגים למשתמש — רק לפי התפקידים שלו. אורח → גולש בלתרום/לבקש.
-  const modes: AppMode[] = isGuest
-    ? ['donate', 'receive']
-    : (['donate', 'receive', 'drive'].filter(
-        (m) => (m === 'donate' && isDonor) || (m === 'receive' && isRecipient) || (m === 'drive' && isDriver),
-      ) as AppMode[]);
-  const effectiveModes = modes.length ? modes : (['donate', 'receive'] as AppMode[]);
-
-  const [appMode, setAppMode] = useState<AppMode>(effectiveModes[0]);
-  const [viewMode, setViewMode] = useState<ViewMode>('map');
-  const [events, setEvents] = useState<FeedEvent[]>([]);
+  const [tab, setTab] = useState<Tab>('offers');
+  const [view, setView] = useState<ViewMode>('list');
+  const [cat, setCat] = useState('all');
+  const [search, setSearch] = useState('');
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [needs, setNeeds] = useState<NeedRow[]>([]);
-  const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
-  const [totals, setTotals] = useState({ donations: 0, units: 0 });
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [fabOpen, setFabOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  // אם התפקידים השתנו והמצב הנוכחי כבר לא רלוונטי — עוברים למצב הראשון הזמין
-  const modesKey = effectiveModes.join(',');
-  useEffect(() => {
-    if (!effectiveModes.includes(appMode)) setAppMode(effectiveModes[0]);
-  }, [modesKey]);
-
-  // מיקום המשתמש (אם כבר אושרה הרשאה) — לחישוב מרחקים
   useEffect(() => {
     (async () => {
       try {
@@ -138,57 +101,58 @@ export default function Feed() {
   }, []);
 
   const load = useCallback(async () => {
-    const { data: ev } = await supabase.from('feed_events').select('*').order('created_at', { ascending: false }).limit(20);
-    setEvents((ev as FeedEvent[]) ?? []);
-    const { data: agg } = await supabase.from('profiles_public').select('total_donations,total_units');
-    if (agg) {
-      setTotals({
-        donations: agg.reduce((s: number, r: any) => s + (r.total_donations ?? 0), 0),
-        units: agg.reduce((s: number, r: any) => s + (r.total_units ?? 0), 0),
-      });
-    }
     const { data: off } = await supabase
       .from('open_offers_v')
-      .select('id,food_type,quantity,unit_label,kosher,vegetarian,notes,origin_city,origin_lat,origin_lng,donor_name,donor_level,donor_rating,donor_is_courier');
+      .select('id,food_type,quantity,unit_label,kosher,vegetarian,notes,photo_url,origin_city,origin_lat,origin_lng,donor_name,donor_photo,donor_level,donor_rating,donor_is_courier,created_at');
     setOffers((off as OfferRow[]) ?? []);
     const { data: nd } = await supabase
       .from('open_needs_v')
-      .select('id,region,food_type,quantity,unit_label,needed_at,notes,recipient_type,display_name');
+      .select('id,region,food_type,quantity,unit_label,notes,recipient_type,display_name,created_at');
     setNeeds((nd as NeedRow[]) ?? []);
-    if (isDriver) {
-      const { data: dl } = await supabase
-        .from('assignments')
-        .select('id,general_destination,need:need_id(food_type,quantity,unit_label),offer:offer_id(food_type,quantity,unit_label,origin_lat,origin_lng,origin_city)')
-        .eq('status', 'waiting_courier')
-        .is('deleted_at', null);
-      setDeliveries((dl as unknown as DeliveryRow[]) ?? []);
-    }
-  }, [isDriver]);
-
+  }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
-
-  const role = roles[0];
-  const level = profile ? LEVEL_META[profile.reputation_level] : null;
-  const accent = MODE_DEF[appMode].accent;
 
   const dist = (lat?: number | null, lng?: number | null): number | null =>
     userLoc && lat != null && lng != null ? haversineKm(userLoc, { lat, lng }) : null;
 
+  const matchCat = (food: string) => {
+    if (cat === 'all') return true;
+    const c = CHIP_CATS.find((x) => x.key === cat);
+    return c ? c.match.some((m) => food.includes(m)) : true;
+  };
+  const matchSearch = (s: string) => !search.trim() || s.includes(search.trim());
+
+  // פריטים אחידים לתצוגה
+  type Item = {
+    id: string; food: string; quantity: number; unit: string; subtitle: string;
+    photo: string | null; lat: number | null; lng: number | null; km: number | null;
+    badge: string; badgeColor: string; needsTransport?: boolean; city: string; created_at: string;
+    donorName?: string; donorPhoto?: string | null; rating?: number;
+    act: () => void;
+  };
+
   const goLogin = () => router.push('/(auth)/phone');
 
-  // פעולות
+  const claim = (o: OfferRow) => {
+    if (isGuest) return goLogin();
+    appAlert('קבלת תרומה', `${o.quantity} ${o.unit_label} · ${o.food_type}\nמאת ${o.donor_name}`, [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'איסוף עצמאי', onPress: () => doClaim(o.id, false) },
+      { text: 'צריך שינוע', onPress: () => doClaim(o.id, true) },
+    ]);
+  };
   const doClaim = async (offerId: string, needTransport: boolean) => {
     const { data, error } = await claimOffer(offerId, needTransport);
     if (error) return appAlert('שגיאה', error.message);
     setSelectedId(null); await load();
     if (data) router.push(`/assignment/${data}`);
   };
-  const claim = (o: OfferRow) => {
+  const commit = (n: NeedRow) => {
     if (isGuest) return goLogin();
-    appAlert('בחירת תרומה', `${o.quantity} ${o.unit_label} · ${o.food_type}\nמאת ${o.donor_name}\n\nכיצד תרצה לקבל?`, [
+    appAlert('התחייבות לבקשה', `${n.quantity} ${n.unit_label} · ${n.food_type}\nאזור ${regionLabel(n.region)}`, [
       { text: 'ביטול', style: 'cancel' },
-      { text: 'איסוף עצמאי', onPress: () => doClaim(o.id, false) },
-      { text: 'בקשת שינוע', onPress: () => doClaim(o.id, true) },
+      { text: 'כן, אני מוביל', onPress: () => doCommit(n.id, true) },
+      { text: 'לא, צריך שינוע', onPress: () => doCommit(n.id, false) },
     ]);
   };
   const doCommit = async (needId: string, selfTransport: boolean) => {
@@ -197,195 +161,177 @@ export default function Feed() {
     setSelectedId(null); await load();
     if (data) router.push(`/assignment/${data}`);
   };
-  const commit = (n: NeedRow) => {
-    if (isGuest) return goLogin();
-    appAlert('התחייבות לבקשה', `${n.quantity} ${n.unit_label} · ${n.food_type}\nאזור ${regionLabel(n.region)}\n\nהאם תבצע את השינוע בעצמך?`, [
-      { text: 'ביטול', style: 'cancel' },
-      { text: 'כן, אני מוביל', onPress: () => doCommit(n.id, true) },
-      { text: 'לא, צריך שינוע', onPress: () => doCommit(n.id, false) },
-    ]);
-  };
-  // בניית פריטים למצב הנוכחי, ממוינים לפי הקרוב
+
   let items: Item[] = [];
-  if (appMode === 'receive') {
-    items = offers.map((o) => ({
-      id: o.id, foodType: o.food_type, quantity: o.quantity, unitLabel: o.unit_label,
-      subtitle: `${o.donor_name}${o.origin_city ? ' · ' + o.origin_city : ''}`,
-      lat: o.origin_lat, lng: o.origin_lng, km: dist(o.origin_lat, o.origin_lng),
-      badge: o.donor_is_courier ? 'התורם מביא' : '🚗 צריך שינוע',
-      badgeColor: o.donor_is_courier ? colors.secondary : colors.warning,
-      needsTransport: !o.donor_is_courier,
-      actLabel: 'קבל תרומה זו', act: () => claim(o),
-    }));
-  } else if (appMode === 'donate') {
-    items = needs.map((n) => {
-      const c = REGION_CENTERS[n.region];
-      return {
-        id: n.id, foodType: n.food_type, quantity: n.quantity, unitLabel: n.unit_label,
-        subtitle: `${RECIPIENT_TYPE_LABELS[n.recipient_type]} · אזור ${regionLabel(n.region)}`,
-        lat: c?.lat ?? null, lng: c?.lng ?? null, km: dist(c?.lat, c?.lng),
-        actLabel: 'אני אתרום', act: () => commit(n),
-      };
-    });
+  if (tab === 'offers') {
+    items = offers
+      .filter((o) => matchCat(o.food_type) && matchSearch(`${o.food_type} ${o.donor_name} ${o.origin_city ?? ''}`))
+      .map((o) => ({
+        id: o.id, food: o.food_type, quantity: o.quantity, unit: o.unit_label,
+        subtitle: o.donor_name, photo: o.photo_url, lat: o.origin_lat, lng: o.origin_lng, km: dist(o.origin_lat, o.origin_lng),
+        badge: o.donor_is_courier ? 'התורם מביא' : 'צריך שינוע', badgeColor: o.donor_is_courier ? colors.secondary : colors.warning,
+        needsTransport: !o.donor_is_courier, city: o.origin_city ?? '', created_at: o.created_at,
+        donorName: o.donor_name, donorPhoto: o.donor_photo, rating: o.donor_rating,
+        act: () => claim(o),
+      }));
   } else {
-    items = deliveries.map((d) => {
-      const info = d.need ?? d.offer;
-      const c = REGION_CENTERS[d.general_destination];
-      const lat = d.offer?.origin_lat ?? c?.lat ?? null;
-      const lng = d.offer?.origin_lng ?? c?.lng ?? null;
-      return {
-        id: d.id, foodType: info?.food_type ?? 'תרומה', quantity: info?.quantity ?? 0, unitLabel: info?.unit_label ?? '',
-        subtitle: `אזור ${regionLabel(d.general_destination)}${d.offer?.origin_city ? ' · ' + d.offer.origin_city : ''}`,
-        lat, lng, km: dist(lat, lng), needsTransport: true,
-        actLabel: 'צפה בנסיעה', act: () => router.push(`/assignment/${d.id}` as any),
-      };
-    });
+    items = needs
+      .filter((n) => matchCat(n.food_type) && matchSearch(`${n.food_type} ${n.display_name ?? ''}`))
+      .map((n) => {
+        const c = REGION_CENTERS[n.region];
+        return {
+          id: n.id, food: n.food_type, quantity: n.quantity, unit: n.unit_label,
+          subtitle: `${RECIPIENT_TYPE_LABELS[n.recipient_type]} · ${regionLabel(n.region)}`,
+          photo: null, lat: c?.lat ?? null, lng: c?.lng ?? null, km: dist(c?.lat, c?.lng),
+          badge: 'בקשה פתוחה', badgeColor: colors.brand700, city: regionLabel(n.region), created_at: n.created_at,
+          act: () => commit(n),
+        };
+      });
   }
   items = items.slice().sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
 
   const markers: MapOffer[] = items
     .filter((i) => i.lat != null && i.lng != null)
     .map((i, idx) => {
-      // היסט קטן לפריטים באותה נקודה (בקשות/נסיעות ברמת אזור) כדי שלא יחפפו
       const sameBefore = items.slice(0, idx).filter((x) => x.lat === i.lat && x.lng === i.lng).length;
-      const off = appMode === 'receive' ? 0 : sameBefore * 0.015;
-      return { id: i.id, food_type: i.foodType, quantity: i.quantity, unit_label: i.unitLabel, origin_lat: (i.lat as number) + off, origin_lng: (i.lng as number) + off, needsTransport: i.needsTransport };
+      const off = tab === 'offers' ? 0 : sameBefore * 0.015;
+      return { id: i.id, food_type: i.food, quantity: i.quantity, unit_label: i.unit, origin_lat: (i.lat as number) + off, origin_lng: (i.lng as number) + off, needsTransport: i.needsTransport };
     });
-
   const selected = items.find((i) => i.id === selectedId) ?? null;
-  const emptyText = appMode === 'donate' ? 'אין בקשות פתוחות כרגע' : appMode === 'receive' ? 'אין תרומות זמינות כרגע' : 'אין נסיעות ממתינות כרגע';
-  const primaryCta = appMode === 'donate' ? { label: 'פרסם תרומה', icon: 'gift' as const, path: '/offer/new' } : appMode === 'receive' ? { label: 'בקש תרומה', icon: 'megaphone' as const, path: '/need/new' } : null;
+  const accent = tab === 'offers' ? colors.brand700 : colors.secondary;
 
-  const tickerItems = (() => {
-    const real = events.map((e) => e.payload?.text).filter((t): t is string => !!t);
-    return real.length ? real : ENCOURAGE;
-  })();
+  const fabAction = (path: string) => {
+    setFabOpen(false);
+    router.push((isGuest ? '/(auth)/phone' : path) as any);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface }}>
-      {/* ── כותרת עליונה ── */}
-      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.surface }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.white }}>
+        {/* סרגל עליון */}
         <View style={styles.topBar}>
-          <View style={styles.avatar}>
-            {isGuest ? <Ionicons name="person" size={20} color={colors.white} /> : (
-              <Txt weight="extrabold" color={colors.white} variant="h2">{profile?.full_name?.trim()?.charAt(0) ?? ''}</Txt>
+          <Pressable onPress={() => router.push(isGuest ? '/(auth)/phone' : '/(tabs)/profile')} style={styles.avatar}>
+            {!isGuest && profile?.photo_url ? (
+              <Image source={{ uri: profile.photo_url }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+            ) : (
+              <Ionicons name="person" size={20} color={colors.white} />
             )}
-          </View>
+          </Pressable>
           <View style={{ flex: 1 }}>
-            <Txt weight="bold">{isGuest ? 'שלום אורח 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}</Txt>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <Txt variant="caption" color={colors.textMuted}>{isGuest ? 'התחבר לפעולות' : role ? ROLE_LABELS[role] : ''}</Txt>
-              {level ? (
-                <View style={styles.levelPill}>
-                  <Ionicons name="shield-checkmark" size={11} color={colors.brand700} />
-                  <Txt variant="caption" weight="medium" color={colors.brand700}>{level.label}</Txt>
-                </View>
-              ) : null}
-            </View>
+            <Txt variant="caption" color={colors.textMuted}>{isGuest ? 'שלום 👋' : `שלום ${profile?.full_name?.split(' ')[0] ?? ''}`}</Txt>
+            <Txt weight="extrabold" variant="h2">תרומות באזור שלך</Txt>
           </View>
           <Pressable onPress={() => setHelpOpen(true)} hitSlop={10} style={styles.iconBtn}>
             <Ionicons name="help-circle-outline" size={22} color={colors.brand700} />
           </Pressable>
           <Pressable onPress={() => router.push('/notifications')} hitSlop={10} style={styles.iconBtn}>
             <Ionicons name="notifications" size={20} color={colors.brand700} />
-            {unread > 0 ? (
-              <View style={styles.badge}>
-                <Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 9 }}>{unread > 9 ? '9+' : unread}</Txt>
-              </View>
-            ) : null}
+            {unread > 0 ? <View style={styles.badge}><Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 9 }}>{unread > 9 ? '9+' : unread}</Txt></View> : null}
           </Pressable>
         </View>
 
-        {/* ── מתג מצבים (רק לפי התפקידים) — אם יש יותר ממצב אחד ── */}
-        {effectiveModes.length > 1 ? (
-          <View style={styles.modeSwitch}>
-            {effectiveModes.map((m) => {
-              const active = appMode === m;
-              return (
-                <Pressable key={m} onPress={() => { setAppMode(m); setSelectedId(null); }} style={[styles.modeBtn, active && { backgroundColor: MODE_DEF[m].accent }]}>
-                  <Ionicons name={MODE_DEF[m].icon} size={16} color={active ? colors.white : MODE_DEF[m].accent} />
-                  <Txt weight="bold" variant="small" color={active ? colors.white : colors.textMuted}>{MODE_DEF[m].label}</Txt>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={[styles.singleModeChip, { borderColor: accent }]}>
-            <Ionicons name={MODE_DEF[appMode].icon} size={16} color={accent} />
-            <Txt weight="bold" variant="small" color={accent}>{MODE_DEF[appMode].label}</Txt>
-          </View>
-        )}
+        {/* חיפוש */}
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={18} color={colors.textMuted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="חיפוש תרומה, תורם או עיר…"
+            placeholderTextColor={colors.textMuted}
+            style={styles.searchInput}
+          />
+          {search ? <Pressable onPress={() => setSearch('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={colors.textMuted} /></Pressable> : null}
+        </View>
 
-        {/* ── מתג מפה / רשימה + מונה ── */}
+        {/* טאב תרומות/בקשות */}
+        <View style={styles.tabSwitch}>
+          <Pressable onPress={() => { setTab('offers'); setSelectedId(null); }} style={[styles.tabBtn, tab === 'offers' && { backgroundColor: colors.brand700 }]}>
+            <Txt weight="bold" variant="small" color={tab === 'offers' ? colors.white : colors.textMuted}>תרומות זמינות</Txt>
+          </Pressable>
+          <Pressable onPress={() => { setTab('needs'); setSelectedId(null); }} style={[styles.tabBtn, tab === 'needs' && { backgroundColor: colors.secondary }]}>
+            <Txt weight="bold" variant="small" color={tab === 'needs' ? colors.white : colors.textMuted}>בקשות פתוחות</Txt>
+          </Pressable>
+        </View>
+
+        {/* קטגוריות */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+          {CHIP_CATS.map((c) => (
+            <Pressable key={c.key} onPress={() => setCat(c.key)} style={[styles.chip, cat === c.key && { backgroundColor: accent, borderColor: accent }]}>
+              <Txt variant="caption" weight="bold" color={cat === c.key ? colors.white : colors.textMuted}>{c.label}</Txt>
+            </Pressable>
+          ))}
+        </ScrollView>
+
+        {/* מפה/רשימה + מונה */}
         <View style={styles.viewRow}>
           <View style={styles.viewToggle}>
-            <Pressable onPress={() => setViewMode('map')} style={[styles.viewBtn, viewMode === 'map' && styles.viewBtnActive]}>
-              <Ionicons name="map" size={15} color={viewMode === 'map' ? colors.brand700 : colors.textMuted} />
-              <Txt variant="caption" weight="bold" color={viewMode === 'map' ? colors.brand700 : colors.textMuted}>מפה</Txt>
+            <Pressable onPress={() => setView('list')} style={[styles.viewBtn, view === 'list' && styles.viewBtnActive]}>
+              <Ionicons name="list" size={15} color={view === 'list' ? colors.brand700 : colors.textMuted} />
+              <Txt variant="caption" weight="bold" color={view === 'list' ? colors.brand700 : colors.textMuted}>רשימה</Txt>
             </Pressable>
-            <Pressable onPress={() => setViewMode('list')} style={[styles.viewBtn, viewMode === 'list' && styles.viewBtnActive]}>
-              <Ionicons name="list" size={16} color={viewMode === 'list' ? colors.brand700 : colors.textMuted} />
-              <Txt variant="caption" weight="bold" color={viewMode === 'list' ? colors.brand700 : colors.textMuted}>רשימה</Txt>
+            <Pressable onPress={() => setView('map')} style={[styles.viewBtn, view === 'map' && styles.viewBtnActive]}>
+              <Ionicons name="map" size={15} color={view === 'map' ? colors.brand700 : colors.textMuted} />
+              <Txt variant="caption" weight="bold" color={view === 'map' ? colors.brand700 : colors.textMuted}>מפה</Txt>
             </Pressable>
           </View>
-          <Txt variant="caption" color={colors.textMuted}>{items.length} {appMode === 'drive' ? 'נסיעות' : appMode === 'donate' ? 'בקשות' : 'תרומות'}</Txt>
+          <Txt variant="caption" color={colors.textMuted}>{items.length} {tab === 'offers' ? 'תרומות' : 'בקשות'}</Txt>
         </View>
       </SafeAreaView>
 
-      <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} role={role} />
+      <HelpModal visible={helpOpen} onClose={() => setHelpOpen(false)} role={profile?.roles?.[0]} />
 
-      {/* ── תוכן: מפה או רשימה ── */}
+      {/* תוכן */}
       <View style={{ flex: 1 }}>
-        {viewMode === 'map' ? (
+        {view === 'map' ? (
           <View style={{ flex: 1 }}>
             <MapBoundary fallback={<View style={[StyleSheet.absoluteFill, styles.mapFallback]}><Ionicons name="map-outline" size={40} color={colors.brand500} /><Txt color={colors.textMuted} style={{ marginTop: 8 }}>המפה תיטען בקרוב</Txt></View>}>
-              <OffersMap key={appMode} offers={markers} variant="fullscreen" mapType="standard" interactive pinColor={accent} onSelect={(mid) => (appMode === 'drive' ? router.push(`/assignment/${mid}` as any) : setSelectedId(mid))} />
+              <OffersMap key={tab} offers={markers} variant="fullscreen" mapType="standard" interactive pinColor={accent} onSelect={setSelectedId} />
             </MapBoundary>
             {selected ? (
               <View style={[styles.detailCard, { paddingBottom: insets.bottom + spacing.md }]}>
-                <Pressable onPress={() => setSelectedId(null)} hitSlop={10} style={styles.detailClose}>
-                  <Ionicons name="close" size={18} color={colors.textMuted} />
-                </Pressable>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-                  <View style={[styles.detailIcon, { backgroundColor: accent + '18' }]}>
-                    <Ionicons name={MODE_DEF[appMode].icon} size={24} color={accent} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt weight="bold" variant="h2">{selected.quantity ? `${selected.quantity} ${selected.unitLabel} · ` : ''}{selected.foodType}</Txt>
-                    <Txt variant="caption" color={colors.textMuted}>{selected.subtitle}{selected.km != null ? ` · ${formatKm(selected.km)}` : ''}</Txt>
-                  </View>
-                </View>
-                {selected.badge ? (
-                  <View style={[styles.badgeTag, { backgroundColor: (selected.badgeColor ?? colors.brand700) + '18', marginTop: spacing.md }]}>
-                    <Txt variant="caption" weight="bold" color={selected.badgeColor ?? colors.brand700}>{selected.badge}</Txt>
-                  </View>
-                ) : null}
-                <Button title={isGuest ? 'התחבר' : selected.actLabel} icon={isGuest ? 'log-in' : 'checkmark-circle'} onPress={isGuest ? goLogin : selected.act} color={accent} style={{ marginTop: spacing.lg }} />
+                <Pressable onPress={() => setSelectedId(null)} hitSlop={10} style={styles.detailClose}><Ionicons name="close" size={18} color={colors.textMuted} /></Pressable>
+                <Txt weight="bold" variant="h2">{selected.quantity} {selected.unit} · {selected.food}</Txt>
+                <Txt variant="caption" color={colors.textMuted} style={{ marginTop: 2 }}>{selected.subtitle}{selected.km != null ? ` · ${formatKm(selected.km)}` : ''}</Txt>
+                <Button title={isGuest ? 'התחבר' : tab === 'offers' ? 'קבל תרומה זו' : 'אני אתרום'} icon={isGuest ? 'log-in' : 'checkmark-circle'} onPress={isGuest ? goLogin : selected.act} color={accent} style={{ marginTop: spacing.md }} />
               </View>
             ) : null}
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}>
+          <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: 140 }}>
             {items.length === 0 ? (
-              <EmptyState icon="sparkles-outline" title={emptyText} subtitle={userLoc ? 'ממוין לפי הקרוב אליך' : undefined} />
+              <EmptyState icon="sparkles-outline" title={tab === 'offers' ? 'אין תרומות זמינות כרגע' : 'אין בקשות פתוחות כרגע'} subtitle={userLoc ? 'ממוין לפי הקרוב אליך' : undefined} />
             ) : (
               items.map((i) => (
-                <Pressable key={i.id} onPress={isGuest ? goLogin : i.act} style={styles.listCard}>
-                  <View style={[styles.detailIcon, { backgroundColor: accent + '18' }]}>
-                    <Ionicons name={MODE_DEF[appMode].icon} size={22} color={accent} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt weight="bold">{i.quantity ? `${i.quantity} ${i.unitLabel} · ` : ''}{i.foodType}</Txt>
-                    <Txt variant="caption" color={colors.textMuted} numberOfLines={1}>{i.subtitle}</Txt>
-                    {i.badge ? <Txt variant="caption" weight="bold" color={i.badgeColor ?? colors.brand700} style={{ marginTop: 2 }}>{i.badge}</Txt> : null}
-                  </View>
-                  <View style={{ alignItems: 'center', gap: 2 }}>
-                    <View style={[styles.kmPill, { backgroundColor: accent + '15' }]}>
-                      <Ionicons name="navigate" size={11} color={accent} />
-                      <Txt variant="caption" weight="bold" color={accent}>{formatKm(i.km)}</Txt>
+                <Pressable key={i.id} onPress={isGuest ? goLogin : i.act} style={styles.card}>
+                  <View style={styles.cardPhoto}>
+                    {i.photo ? (
+                      <Image source={{ uri: i.photo }} style={{ width: '100%', height: '100%' }} />
+                    ) : (
+                      <View style={[StyleSheet.absoluteFill, { backgroundColor: accent + '12', alignItems: 'center', justifyContent: 'center' }]}>
+                        <Ionicons name={foodIcon(i.food)} size={34} color={accent} />
+                      </View>
+                    )}
+                    <View style={[styles.cardBadge, { backgroundColor: i.badgeColor }]}>
+                      <Txt variant="caption" weight="bold" color={colors.white} style={{ fontSize: 10 }}>{tab === 'offers' && i.needsTransport ? '🚗 ' : ''}{i.badge}</Txt>
                     </View>
-                    <Ionicons name="chevron-back" size={18} color={colors.textMuted} />
                   </View>
+                  <View style={{ flex: 1, justifyContent: 'space-between', paddingVertical: 2 }}>
+                    <View>
+                      <Txt weight="bold" variant="body" numberOfLines={1}>{i.quantity} {i.unit} · {i.food}</Txt>
+                      <Txt variant="caption" color={colors.textMuted} numberOfLines={1} style={{ marginTop: 2 }}>{i.subtitle}</Txt>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {i.city ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                          <Ionicons name="location" size={12} color={colors.textMuted} />
+                          <Txt variant="caption" color={colors.textMuted}>{i.city}{i.km != null ? ` · ${formatKm(i.km)}` : ''}</Txt>
+                        </View>
+                      ) : null}
+                      {tab === 'offers' && i.rating ? <Txt variant="caption" weight="bold" color={colors.warning}>⭐ {i.rating}</Txt> : null}
+                      <Txt variant="caption" color={colors.textMuted}>· {timeAgo(i.created_at)}</Txt>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
                 </Pressable>
               ))
             )}
@@ -393,48 +339,75 @@ export default function Feed() {
         )}
       </View>
 
-      {/* ── דוק תחתון: טיקר + כפתור ראשי (מוסתר כשכרטיס פרטים פתוח במפה) ── */}
-      <SafeAreaView edges={['bottom']} style={styles.dockWrap} pointerEvents="box-none">
-        {!(viewMode === 'map' && selected) ? <ActivityTicker items={tickerItems} /> : null}
-        {primaryCta && !(viewMode === 'map' && selected) ? (
-          <Pressable onPress={() => (isGuest ? goLogin() : router.push(primaryCta.path as any))} style={[styles.primaryCta, { backgroundColor: accent }]}>
-            <Ionicons name={primaryCta.icon} size={20} color={colors.white} />
-            <Txt weight="bold" color={colors.white}>{primaryCta.label}</Txt>
+      {/* כפתור + מרכזי */}
+      <Pressable onPress={() => setFabOpen(true)} style={[styles.fab, { bottom: insets.bottom + 16 }]}>
+        <Ionicons name="add" size={30} color={colors.white} />
+      </Pressable>
+
+      {/* גיליון פעולות ה-+ */}
+      <Modal visible={fabOpen} transparent animationType="fade" onRequestClose={() => setFabOpen(false)}>
+        <Pressable style={styles.sheetOverlay} onPress={() => setFabOpen(false)}>
+          <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]} onPress={(e) => e.stopPropagation()}>
+            <View style={{ alignItems: 'center', marginBottom: spacing.md }}>
+              <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: colors.border }} />
+            </View>
+            <Txt variant="h2" weight="extrabold" center style={{ marginBottom: spacing.lg }}>מה תרצו לעשות?</Txt>
+            <Pressable onPress={() => fabAction('/offer/new')} style={[styles.sheetOpt, { backgroundColor: colors.brand50 }]}>
+              <View style={[styles.sheetIcon, { backgroundColor: colors.brand700 }]}><Ionicons name="gift" size={22} color={colors.white} /></View>
+              <View style={{ flex: 1 }}>
+                <Txt weight="bold">פרסם תרומה</Txt>
+                <Txt variant="caption" color={colors.textMuted}>יש לי מזון לתרום</Txt>
+              </View>
+              <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
+            </Pressable>
+            <Pressable onPress={() => fabAction('/need/new')} style={[styles.sheetOpt, { backgroundColor: '#E7F6EE', marginTop: spacing.md }]}>
+              <View style={[styles.sheetIcon, { backgroundColor: colors.secondary }]}><Ionicons name="megaphone" size={22} color={colors.white} /></View>
+              <View style={{ flex: 1 }}>
+                <Txt weight="bold">בקש תרומה</Txt>
+                <Txt variant="caption" color={colors.textMuted}>אני צריך תרומה עבור היחידה</Txt>
+              </View>
+              <Ionicons name="chevron-back" size={20} color={colors.textMuted} />
+            </Pressable>
           </Pressable>
-        ) : null}
-      </SafeAreaView>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
-const CARD_BG = 'rgba(255,255,255,0.98)';
 const styles = StyleSheet.create({
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.brand700, alignItems: 'center', justifyContent: 'center' },
-  levelPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.brand50, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brand700, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   iconBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.brand50, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: 2, left: 2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
 
-  modeSwitch: { flexDirection: 'row', backgroundColor: colors.brand50, borderRadius: radius.pill, padding: 4, gap: 4, marginHorizontal: spacing.lg, marginTop: spacing.md },
-  modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.md, borderRadius: radius.pill },
-  singleModeChip: { flexDirection: 'row', alignSelf: 'flex-start', alignItems: 'center', gap: 6, marginHorizontal: spacing.lg, marginTop: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5 },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 10 },
+  searchInput: { flex: 1, fontSize: 15, color: colors.text, textAlign: 'right', padding: 0 },
 
-  viewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, marginTop: spacing.md, marginBottom: spacing.sm },
-  viewToggle: { flexDirection: 'row', backgroundColor: colors.brand50, borderRadius: radius.pill, padding: 3, gap: 3 },
-  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.lg, paddingVertical: 7, borderRadius: radius.pill },
+  tabSwitch: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 4, gap: 4, marginHorizontal: spacing.lg, marginTop: spacing.md },
+  tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: radius.pill },
+
+  chipsRow: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: 8 },
+  chip: { paddingHorizontal: spacing.lg, paddingVertical: 7, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.white },
+
+  viewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  viewToggle: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 3, gap: 3 },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill },
   viewBtnActive: { backgroundColor: colors.white, ...shadow.card },
 
   mapFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand50 },
 
-  listCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.md, marginBottom: 10, ...shadow.card },
-  detailIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  kmPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.card, borderRadius: 20, padding: spacing.md, marginBottom: 12, ...shadow.card },
+  cardPhoto: { width: 84, height: 84, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface },
+  cardBadge: { position: 'absolute', bottom: 6, right: 6, paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.pill },
 
-  dockWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  primaryCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: radius.md, ...shadow.card },
-  communityChip: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: CARD_BG, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, marginBottom: spacing.sm, maxWidth: '100%', ...shadow.card },
+  fab: { position: 'absolute', alignSelf: 'center', width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand700, alignItems: 'center', justifyContent: 'center', ...shadow.card, shadowOpacity: 0.25, elevation: 8 },
 
-  detailCard: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.md, backgroundColor: colors.card, borderRadius: 24, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, ...shadow.card },
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(11,31,51,0.5)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  sheetOpt: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderRadius: radius.lg, padding: spacing.lg },
+  sheetIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+
+  detailCard: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.md, backgroundColor: colors.card, borderRadius: 24, padding: spacing.lg, ...shadow.card },
   detailClose: { position: 'absolute', top: spacing.md, right: spacing.md, width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
-  badgeTag: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
 });

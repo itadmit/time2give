@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Alert, Pressable, Modal } from 'react-native';
+import { View, Alert, Pressable, Modal, Image, ActivityIndicator } from 'react-native';
 import { appAlert } from '../../src/components/AppAlert';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { safeBack } from '../../src/lib/nav';
 import { RegionPicker } from '../../src/components/RegionPicker';
 import { useAuth } from '../../src/context/AuthContext';
 import { publishOffer } from '../../src/lib/api';
+import { pickAndUploadPhoto } from '../../src/lib/uploadPhoto';
 import type { Region } from '../../src/lib/regions';
 import { colors, spacing, radius } from '../../src/theme/tokens';
 
@@ -56,6 +57,16 @@ export default function NewOffer() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [foundAddress, setFoundAddress] = useState<string | null>(null); // כתובת שנמצאה → מודל אישור
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const addPhoto = async () => {
+    setUploadingPhoto(true);
+    const { url, error } = await pickAndUploadPhoto('offers');
+    setUploadingPhoto(false);
+    if (error) return appAlert('שגיאה בהעלאת התמונה', error);
+    if (url) setPhotoUrl(url);
+  };
 
   const useMyLocation = async () => {
     try {
@@ -95,6 +106,7 @@ export default function NewOffer() {
       kosher,
       vegetarian: veg,
       notes: notes.trim() || null,
+      photo_url: photoUrl,
       donor_is_courier: selfCourier,
     });
     setLoading(false);
@@ -106,6 +118,29 @@ export default function NewOffer() {
     <>
       <Header title="פרסום תרומה חדשה" onBack={() => safeBack()} />
       <Screen scroll>
+        {/* תמונה — משדרג את המודעה (כמו יד2) */}
+        <Pressable onPress={addPhoto} disabled={uploadingPhoto} style={{ height: 170, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.brand50, borderWidth: photoUrl ? 0 : 1.5, borderColor: colors.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }}>
+          {photoUrl ? (
+            <>
+              <Image source={{ uri: photoUrl }} style={{ width: '100%', height: '100%' }} />
+              <View style={{ position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(11,31,51,0.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill }}>
+                <Ionicons name="camera" size={14} color={colors.white} />
+                <Txt variant="caption" weight="bold" color={colors.white}>החלף תמונה</Txt>
+              </View>
+            </>
+          ) : uploadingPhoto ? (
+            <ActivityIndicator color={colors.brand700} />
+          ) : (
+            <View style={{ alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="camera" size={26} color={colors.brand700} />
+              </View>
+              <Txt weight="bold" color={colors.brand700}>הוסף תמונה</Txt>
+              <Txt variant="caption" color={colors.textMuted}>מודעה עם תמונה מקבלת יותר תשומת לב</Txt>
+            </View>
+          )}
+        </Pressable>
+
         <Section num={1} title="מה תורמים?" />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md }}>
           {FOOD_OPTIONS.map((f) => (
