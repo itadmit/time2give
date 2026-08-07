@@ -5,10 +5,10 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Screen, Txt, Field, Button, Card } from '../../src/components/ui';
+import { Screen, Txt, Field, Button } from '../../src/components/ui';
 import { safeBack } from '../../src/lib/nav';
 import { useAuth } from '../../src/context/AuthContext';
-import { DEMO_LOGINS, DEMO_PASSWORD, findDemoByPhone } from '../../src/lib/demoUsers';
+import { DEMO_PASSWORD, findDemoByPhone } from '../../src/lib/demoUsers';
 import { colors, spacing, radius } from '../../src/theme/tokens';
 
 /** ממיר 05X-XXXXXXX ל-E.164 (+9725X...) */
@@ -23,17 +23,8 @@ function toE164(input: string): string | null {
 export default function PhoneScreen() {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
-  const [demoEmail, setDemoEmail] = useState<string | null>(null);
   const { signInWithPhone, signInDemo } = useAuth();
   const router = useRouter();
-
-  const demoLogin = async (email: string) => {
-    setDemoEmail(email);
-    const { error } = await signInDemo(email, DEMO_PASSWORD);
-    setDemoEmail(null);
-    if (error) appAlert('כניסת דמו נכשלה', error);
-    // AuthGate ינווט אוטומטית
-  };
 
   const submit = async () => {
     const e164 = toE164(phone);
@@ -99,27 +90,6 @@ export default function PhoneScreen() {
       <Txt variant="caption" color={colors.textMuted} center style={{ marginTop: spacing.lg }}>
         נשלח אליך קוד חד-פעמי ב-WhatsApp
       </Txt>
-
-      {__DEV__ ? (
-        <Card style={{ marginTop: spacing.xxl, borderWidth: 1, borderColor: colors.warning, borderStyle: 'dashed', backgroundColor: '#FBF0DA', gap: spacing.sm }}>
-          <Txt variant="small" weight="bold" color={colors.warning}>
-            🛠 מספרי בדיקה (בלי SMS)
-          </Txt>
-          <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: spacing.sm }}>
-            אפשר להקליד את אחד המספרים למעלה ולהתחבר מיד, או ללחוץ כאן:
-          </Txt>
-          {DEMO_LOGINS.map((d) => (
-            <Button
-              key={d.email}
-              title={d.label}
-              variant="secondary"
-              icon={d.icon as keyof typeof Ionicons.glyphMap}
-              loading={demoEmail === d.email}
-              onPress={() => demoLogin(d.email)}
-            />
-          ))}
-        </Card>
-      ) : null}
       </Screen>
     </View>
   );
